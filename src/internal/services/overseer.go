@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"github.com/mayvqt/ArrSync/internal/config"
 	"github.com/sirupsen/logrus"
 )
+
+var rng *rand.Rand
 
 type OverseerService struct {
 	config    config.OverseerConfig
@@ -37,6 +40,11 @@ func NewOverseerService(cfg config.OverseerConfig) *OverseerService {
 		},
 		available: true,
 	}
+}
+
+func init() {
+	// Create a package-local RNG for jitter (avoid global Seed calls)
+	rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
 // SetHTTPClient allows replacing the internal HTTP client (useful for tests)
@@ -141,6 +149,8 @@ func (s *OverseerService) removeMediaByTmdbID(tmdbID int, mediaType string) erro
 // retry executes a function with exponential backoff
 func (s *OverseerService) retry(operation string, fn func() error) error {
 	var err error
+	// Cap backoff to avoid excessively long sleeps
+	const maxBackoff = 30 * time.Second
 	for attempt := 0; attempt <= s.config.MaxRetries; attempt++ {
 		err = fn()
 		if err == nil {
@@ -148,14 +158,21 @@ func (s *OverseerService) retry(operation string, fn func() error) error {
 		}
 
 		if attempt < s.config.MaxRetries {
+			// exponential backoff with jitter
 			backoff := time.Duration(1<<uint(attempt)) * time.Second
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+			// add a small jitter up to 250ms
+			jitter := time.Duration(rng.Intn(250)) * time.Millisecond
+			sleep := backoff + jitter
 			logrus.WithFields(logrus.Fields{
 				"operation": operation,
 				"attempt":   attempt + 1,
-				"backoff":   backoff,
+				"backoff":   sleep,
 				"error":     err,
 			}).Warn("Retrying after error")
-			time.Sleep(backoff)
+			time.Sleep(sleep)
 		}
 	}
 	return fmt.Errorf("max retries exceeded: %w", err)
@@ -206,21 +223,22 @@ func (s *OverseerService) getMediaIDByTmdbID(tmdbID int, mediaType string) (int,
 	}
 
 	if resp.StatusCode == http.StatusOK {
-		var rawResponse map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&rawResponse); err != nil {
+		// Decode into a small typed struct to avoid map allocations
+		var body struct {
+			MediaInfo *struct {
+				ID int `json:"id"`
+			} `json:"mediaInfo"`
+			ID *int `json:"id"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 			return 0, err
 		}
 
-		// Try to extract media ID from mediaInfo
-		if mediaInfo, ok := rawResponse["mediaInfo"].(map[string]interface{}); ok {
-			if id, ok := mediaInfo["id"].(float64); ok {
-				return int(id), nil
-			}
+		if body.MediaInfo != nil && body.MediaInfo.ID != 0 {
+			return body.MediaInfo.ID, nil
 		}
-
-		// Fallback to top-level ID
-		if id, ok := rawResponse["id"].(float64); ok {
-			return int(id), nil
+		if body.ID != nil && *body.ID != 0 {
+			return *body.ID, nil
 		}
 
 		return 0, fmt.Errorf("could not find media ID in response")
