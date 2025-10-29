@@ -16,26 +16,23 @@ import (
 )
 
 func main() {
-	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to load configuration")
 	}
 
-	// Initialize services
+	// Initialize service chain
 	overseerService := services.NewOverseerService(cfg.Overseer)
 	cleanupService := services.NewCleanupService(overseerService)
-
-	// Initialize handlers
 	handler := handlers.NewHandler(cleanupService)
 
-	// Setup router
+	// Configure routes
 	router := mux.NewRouter()
 	router.HandleFunc("/webhook/sonarr", handler.HandleSonarrWebhook).Methods("POST")
 	router.HandleFunc("/webhook/radarr", handler.HandleRadarrWebhook).Methods("POST")
 	router.HandleFunc("/health", handler.HandleHealth).Methods("GET")
 
-	// Setup server
+	// Start HTTP server
 	server := &http.Server{
 		Addr:         ":" + cfg.Server.Port,
 		Handler:      router,
@@ -44,29 +41,26 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Start server in a goroutine
 	go func() {
-		logrus.WithField("port", cfg.Server.Port).Info("Starting arrsync server")
+		logrus.WithField("port", cfg.Server.Port).Info("ArrSync server started")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logrus.WithError(err).Fatal("Failed to start server")
+			logrus.WithError(err).Fatal("Server failed")
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown
+	// Graceful shutdown on interrupt
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	logrus.Info("Shutting down arrsync server...")
+	logrus.Info("Shutting down...")
 
-	// Create a deadline for shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Attempt graceful shutdown
 	if err := server.Shutdown(ctx); err != nil {
-		logrus.WithError(err).Fatal("Server forced to shutdown")
+		logrus.WithError(err).Fatal("Forced shutdown")
 	}
 
-	logrus.Info("ArrSync server exited")
+	logrus.Info("ArrSync stopped")
 }
