@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -51,6 +52,28 @@ func init() {
 func (s *OverseerService) SetHTTPClient(client *http.Client) {
 	if client != nil {
 		s.client = client
+	}
+}
+
+// Monitor periodically polls Overseer.HealthCheck at the provided interval.
+// It waits for the first tick before calling HealthCheck so starting the monitor
+// does not immediately perform network I/O. Monitor returns when ctx is done.
+func (s *OverseerService) Monitor(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = 60 * time.Second
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := s.HealthCheck(); err != nil {
+				logrus.WithError(err).Warn("Overseer health check failed during monitoring")
+			}
+		}
 	}
 }
 

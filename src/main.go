@@ -141,6 +141,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Start background Overseer monitor (polls health periodically)
+	go func() {
+		overseerService.Monitor(ctx, cfg.Overseer.HealthInterval)
+	}()
+
 	// Start supervised server and wait for it on shutdown
 	done := make(chan error, 1)
 	go func() {
