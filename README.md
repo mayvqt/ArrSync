@@ -26,9 +26,27 @@
 
 ### 1️⃣ Download or Build
 
-**Option A: Download Binary** *(coming soon)*
+**Option A: Download Binary**
+
+Download the pre-built binaries from the GitHub release: https://github.com/mayvqt/ArrSync/releases/tag/v1.0.0
+
+Available assets in the release:
+
+- `arrsync-windows-amd64.exe` — Windows (x64)
+- `arrsync-windows-arm64.exe` — Windows (ARM)
+- `arrsync-linux-amd64` — Linux (x64)
+- `arrsync-linux-arm64` — Linux (ARM)
+- `arrsync-darwin-amd64` — macOS (Intel)
+- `arrsync-darwin-arm64` — macOS (Apple Silicon)
+- `checksums.txt` — SHA256 checksums for all assets
+
+Example: download, verify and run (Linux)
 ```bash
-# Download the latest release for your platform
+curl -LO https://github.com/mayvqt/ArrSync/releases/download/v1.0.0/arrsync-linux-amd64
+curl -LO https://github.com/mayvqt/ArrSync/releases/download/v1.0.0/checksums.txt
+sha256sum -c checksums.txt
+chmod +x arrsync-linux-amd64
+./arrsync-linux-amd64
 ```
 
 **Option B: Build from Source**
