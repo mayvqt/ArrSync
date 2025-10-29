@@ -14,6 +14,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # Required for artifact attestation
+  attestations: write
 
 jobs:
   build-and-release:
@@ -63,6 +65,7 @@ jobs:
 
           echo "Using release tag: ${TAG}"
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT  # version without 'v' prefix
 
           # If this run was not triggered by a tag push matching TAG, create & push the tag so it exists in the repo
           if [ "${{ github.event_name }}" != "push" ] || [[ "${REF_NAME}" != "${TAG}" ]]; then
@@ -73,16 +76,18 @@ jobs:
           fi
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.23'
+          cache-dependency-path: src/go.sum
 
       - name: Install dependencies
-        run: cd src && go mod download
+        working-directory: src
+        run: go mod download
 
       - name: Run vet & tests
+        working-directory: src
         run: |
-          cd src
           go vet ./...
           go test ./... -v
 
@@ -90,24 +95,40 @@ jobs:
       # We intentionally do NOT create tags here to avoid accidental or recursive runs.
 
       - name: Build cross-platform binaries
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+          COMMIT: ${{ github.sha }}
         run: |
           set -e
           mkdir -p releases
           cd src
-          GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o ../releases/arrsync-windows-amd64.exe .
-          GOOS=windows GOARCH=arm64 go build -ldflags "-s -w" -o ../releases/arrsync-windows-arm64.exe .
-          GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o ../releases/arrsync-linux-amd64 .
-          GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o ../releases/arrsync-linux-arm64 .
-          GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o ../releases/arrsync-darwin-amd64 .
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o ../releases/arrsync-darwin-arm64 .
+          
+          # Build info to embed in binaries
+          BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          LDFLAGS="-s -w -X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildTime=${BUILD_TIME}"
+          
+          GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o ../releases/arrsync-windows-amd64.exe .
+          GOOS=windows GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o ../releases/arrsync-windows-arm64.exe .
+          GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o ../releases/arrsync-linux-amd64 .
+          GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o ../releases/arrsync-linux-arm64 .
+          GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o ../releases/arrsync-darwin-amd64 .
+          GOOS=darwin GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o ../releases/arrsync-darwin-arm64 .
           cd ..
           sha256sum releases/* > releases/checksums.txt
 
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: 'releases/*'
+
       - name: Create GitHub Release (with assets)
         id: gh_release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           files: releases/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
