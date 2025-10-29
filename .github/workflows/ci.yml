@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
+        run: cd src && go mod download
+
+      - name: Run go vet
+        run: cd src && go vet ./...
+
+      - name: Run tests
+        run: cd src && go test ./... -v
+
+      - name: Build (sanity)
+        run: |
+          cd src
+          go build -v -o ../arrsync || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: arrsync-sanity
+          path: arrsync

@@ -1,0 +1,67 @@
+name: Release on main
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Install dependencies
+        run: cd src && go mod download
+
+      - name: Run vet & tests
+        run: |
+          cd src
+          go vet ./...
+          go test ./... -v
+
+      - name: Create release tag
+        id: tag
+        run: |
+          # create a timestamp tag so releases are unique
+          TAG="v$(date -u +'%Y.%m.%d.%H%M%S')-$(git rev-parse --short HEAD)"
+          echo "Tag: $TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build cross-platform binaries
+        run: |
+          set -e
+          mkdir -p releases
+          cd src
+          GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o ../releases/arrsync-windows-amd64.exe .
+          GOOS=windows GOARCH=arm64 go build -ldflags "-s -w" -o ../releases/arrsync-windows-arm64.exe .
+          GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o ../releases/arrsync-linux-amd64 .
+          GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o ../releases/arrsync-linux-arm64 .
+          GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o ../releases/arrsync-darwin-amd64 .
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o ../releases/arrsync-darwin-arm64 .
+          cd ..
+          sha256sum releases/* > releases/checksums.txt
+
+      - name: Create GitHub Release (with assets)
+        id: gh_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: releases/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
