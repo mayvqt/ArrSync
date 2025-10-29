@@ -38,17 +38,20 @@ func (s *OverseerService) RemoveRequestsByTmdbID(tmdbID int) error {
 	}
 
 	for _, request := range requests {
-		if err := s.deleteRequest(request.ID); err != nil {
+		// Delete the media entry, which will also remove the request
+		if err := s.deleteMedia(request.Media.ID); err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{
 				"requestId": request.ID,
+				"mediaId":   request.Media.ID,
 				"tmdbId":    tmdbID,
-			}).Error("Failed to delete request")
+			}).Error("Failed to delete media")
 			continue
 		}
 		logrus.WithFields(logrus.Fields{
 			"requestId": request.ID,
+			"mediaId":   request.Media.ID,
 			"tmdbId":    tmdbID,
-		}).Info("Successfully removed request from Overseer")
+		}).Info("Successfully removed media from Overseer")
 	}
 
 	return nil
@@ -67,17 +70,20 @@ func (s *OverseerService) RemoveRequestsByTvdbID(tvdbID int) error {
 	}
 
 	for _, request := range requests {
-		if err := s.deleteRequest(request.ID); err != nil {
+		// Delete the media entry, which will also remove the request
+		if err := s.deleteMedia(request.Media.ID); err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{
 				"requestId": request.ID,
+				"mediaId":   request.Media.ID,
 				"tvdbId":    tvdbID,
-			}).Error("Failed to delete request")
+			}).Error("Failed to delete media")
 			continue
 		}
 		logrus.WithFields(logrus.Fields{
 			"requestId": request.ID,
+			"mediaId":   request.Media.ID,
 			"tvdbId":    tvdbID,
-		}).Info("Successfully removed request from Overseer")
+		}).Info("Successfully removed media from Overseer")
 	}
 
 	return nil
@@ -195,6 +201,29 @@ func (s *OverseerService) getRequestsByTvdbID(tvdbID int) ([]models.OverseerRequ
 
 func (s *OverseerService) deleteRequest(requestID int) error {
 	url := fmt.Sprintf("%s/api/v1/request/%d", s.config.URL, requestID)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("X-API-Key", s.config.APIKey)
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (s *OverseerService) deleteMedia(mediaID int) error {
+	url := fmt.Sprintf("%s/api/v1/media/%d", s.config.URL, mediaID)
 
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
