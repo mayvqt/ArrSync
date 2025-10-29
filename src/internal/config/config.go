@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -19,8 +21,11 @@ type ServerConfig struct {
 }
 
 type OverseerConfig struct {
-	URL    string
-	APIKey string
+	URL        string
+	APIKey     string
+	Timeout    time.Duration
+	MaxRetries int
+	DryRun     bool
 }
 
 type LogConfig struct {
@@ -38,8 +43,11 @@ func Load() (*Config, error) {
 			Port: getEnv("PORT", "8080"),
 		},
 		Overseer: OverseerConfig{
-			URL:    getEnv("OVERSEER_URL", ""),
-			APIKey: getEnv("OVERSEER_API_KEY", ""),
+			URL:        getEnv("OVERSEER_URL", ""),
+			APIKey:     getEnv("OVERSEER_API_KEY", ""),
+			Timeout:    getEnvDuration("API_TIMEOUT", 30*time.Second),
+			MaxRetries: getEnvInt("MAX_RETRIES", 3),
+			DryRun:     getEnvBool("DRY_RUN", false),
 		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),
@@ -54,6 +62,10 @@ func Load() (*Config, error) {
 	// Set log level
 	if err := config.setLogLevel(); err != nil {
 		return nil, err
+	}
+
+	if config.Overseer.DryRun {
+		logrus.Warn("DRY RUN MODE ENABLED - No deletions will be performed")
 	}
 
 	return config, nil
@@ -81,6 +93,33 @@ func (c *Config) setLogLevel() error {
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if i, err := strconv.Atoi(value); err == nil {
+			return i
+		}
+	}
+	return defaultValue
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if b, err := strconv.ParseBool(value); err == nil {
+			return b
+		}
+	}
+	return defaultValue
+}
+
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if i, err := strconv.Atoi(value); err == nil {
+			return time.Duration(i) * time.Second
+		}
 	}
 	return defaultValue
 }

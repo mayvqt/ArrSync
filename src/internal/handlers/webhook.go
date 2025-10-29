@@ -68,10 +68,30 @@ func (h *Handler) HandleRadarrWebhook(w http.ResponseWriter, r *http.Request) {
 // HandleHealth returns service health status
 func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":  "healthy",
-		"service": "arrsync",
+
+	healthy := true
+	status := "healthy"
+	overseerStatus := "available"
+
+	// Check Overseer availability
+	overseerSvc := h.cleanup.GetOverseerService()
+	if !overseerSvc.IsAvailable() {
+		healthy = false
+		status = "degraded"
+		overseerStatus = "unavailable"
+	}
+
+	statusCode := http.StatusOK
+	if !healthy {
+		statusCode = http.StatusServiceUnavailable
+	}
+
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   status,
+		"service":  "arrsync",
+		"healthy":  healthy,
+		"overseer": overseerStatus,
 	})
 }
 

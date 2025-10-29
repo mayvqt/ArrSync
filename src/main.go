@@ -26,6 +26,14 @@ func main() {
 	cleanupService := services.NewCleanupService(overseerService)
 	handler := handlers.NewHandler(cleanupService)
 
+	// Validate Overseer connection on startup
+	logrus.Info("Validating Overseer connection...")
+	if err := overseerService.HealthCheck(); err != nil {
+		logrus.WithError(err).Warn("Overseer health check failed - will run in degraded mode")
+	} else {
+		logrus.Info("Overseer connection validated successfully")
+	}
+
 	// Configure routes
 	router := mux.NewRouter()
 	router.HandleFunc("/webhook/sonarr", handler.HandleSonarrWebhook).Methods("POST")

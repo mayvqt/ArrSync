@@ -13,6 +13,11 @@ func NewCleanupService(overseer *OverseerService) *CleanupService {
 	return &CleanupService{overseer: overseer}
 }
 
+// GetOverseerService returns the underlying Overseer service
+func (s *CleanupService) GetOverseerService() *OverseerService {
+	return s.overseer
+}
+
 // ProcessSonarrWebhook handles Sonarr webhook events and removes deleted series from Overseer
 func (s *CleanupService) ProcessSonarrWebhook(webhook models.SonarrWebhook) error {
 	switch webhook.EventType {
