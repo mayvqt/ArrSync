@@ -83,24 +83,44 @@ func (s *OverseerService) getMediaIDByTmdbID(tmdbID int, mediaType string) (int,
 	}
 	defer resp.Body.Close()
 
+	logrus.WithFields(logrus.Fields{
+		"url":        url,
+		"statusCode": resp.StatusCode,
+	}).Debug("API response")
+
+	// 404 means media not found in Overseer (not an error - may not have been requested)
+	if resp.StatusCode == http.StatusNotFound {
+		logrus.WithFields(logrus.Fields{
+			"tmdbId":    tmdbID,
+			"mediaType": mediaType,
+		}).Info("Media not found in Overseer (may not have been requested)")
+		return 0, nil
+	}
+
 	if resp.StatusCode == http.StatusOK {
-		var media struct {
-			ID int `json:"id"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&media); err != nil {
+		var rawResponse map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&rawResponse); err != nil {
 			return 0, err
 		}
 
-		logrus.WithFields(logrus.Fields{
-			"mediaId":   media.ID,
-			"mediaType": mediaType,
-			"tmdbId":    tmdbID,
-		}).Debug("Found media")
+		logrus.WithField("response", rawResponse).Debug("Full API response")
 
-		return media.ID, nil
+		// Try to extract media ID from mediaInfo
+		if mediaInfo, ok := rawResponse["mediaInfo"].(map[string]interface{}); ok {
+			if id, ok := mediaInfo["id"].(float64); ok {
+				return int(id), nil
+			}
+		}
+
+		// Fallback to top-level ID
+		if id, ok := rawResponse["id"].(float64); ok {
+			return int(id), nil
+		}
+
+		return 0, fmt.Errorf("could not find media ID in response")
 	}
 
-	return 0, nil
+	return 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 }
 
 // deleteMedia removes media entry from Overseer (cascades to requests, seasons, episodes)
