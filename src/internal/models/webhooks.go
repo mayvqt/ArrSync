@@ -22,6 +22,7 @@ type SonarrSeries struct {
 	Path              string        `json:"path"`
 	TvdbID            int           `json:"tvdbId"`
 	TvMazeID          int           `json:"tvMazeId"`
+	TmdbID            int           `json:"tmdbId"`
 	ImdbID            string        `json:"imdbId"`
 	SeriesType        string        `json:"seriesType"`
 	Network           string        `json:"network"`
