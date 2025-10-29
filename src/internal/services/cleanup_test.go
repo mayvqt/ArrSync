@@ -18,7 +18,9 @@ func TestProcessRadarrWebhook_RemovesMovie(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// lookup GET /api/v1/movie/{tmdb}
 		if r.Method == http.MethodGet {
-			json.NewEncoder(w).Encode(map[string]interface{}{"mediaInfo": map[string]interface{}{"id": 4242}})
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{"mediaInfo": map[string]interface{}{"id": 4242}}); err != nil {
+				t.Fatalf("failed to encode mediaInfo: %v", err)
+			}
 			return
 		}
 		// DELETE /api/v1/media/{id}

@@ -107,7 +107,9 @@ func TestRemoveMovieByTmdbID_FullFlow(t *testing.T) {
 		switch step {
 		case 0:
 			// first request: lookup
-			json.NewEncoder(w).Encode(map[string]interface{}{"mediaInfo": map[string]interface{}{"id": 9001}})
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{"mediaInfo": map[string]interface{}{"id": 9001}}); err != nil {
+				t.Fatalf("failed to encode mediaInfo: %v", err)
+			}
 			step++
 		case 1:
 			// second request: delete

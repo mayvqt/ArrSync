@@ -19,7 +19,9 @@ func TestHandleRadarrWebhook_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodGet {
-			json.NewEncoder(w).Encode(map[string]interface{}{"mediaInfo": map[string]interface{}{"id": 101}})
+			if err := json.NewEncoder(w).Encode(map[string]interface{}{"mediaInfo": map[string]interface{}{"id": 101}}); err != nil {
+				t.Fatalf("failed to encode mediaInfo: %v", err)
+			}
 			return
 		}
 		if r.Method == http.MethodDelete {
