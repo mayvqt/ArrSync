@@ -87,17 +87,21 @@ func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":   status,
 		"service":  "arrsync",
 		"healthy":  healthy,
 		"overseer": overseerStatus,
-	})
+	}); err != nil {
+		logrus.WithError(err).Error("Failed to encode health response")
+	}
 }
 
 // sendSuccess sends a standardized success response
 func (h *Handler) sendSuccess(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "success"}); err != nil {
+		logrus.WithError(err).Error("Failed to encode success response")
+	}
 }
