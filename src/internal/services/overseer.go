@@ -39,6 +39,13 @@ func NewOverseerService(cfg config.OverseerConfig) *OverseerService {
 	}
 }
 
+// SetHTTPClient allows replacing the internal HTTP client (useful for tests)
+func (s *OverseerService) SetHTTPClient(client *http.Client) {
+	if client != nil {
+		s.client = client
+	}
+}
+
 // HealthCheck verifies Overseer API is reachable
 func (s *OverseerService) HealthCheck() error {
 	url := fmt.Sprintf("%s/api/v1/status", s.config.URL)

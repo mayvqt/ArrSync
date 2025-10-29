@@ -1,8 +1,11 @@
-name: Release on main
+name: Release
 
 on:
   push:
-    branches: [ main ]
+    # Only run this workflow for tag pushes (e.g. v1.0.0)
+    tags: [ 'v*' ]
+  # Allow manual runs from the Actions UI
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -31,17 +34,8 @@ jobs:
           go vet ./...
           go test ./... -v
 
-      - name: Create release tag
-        id: tag
-        run: |
-          # create a timestamp tag so releases are unique
-          TAG="v$(date -u +'%Y.%m.%d.%H%M%S')-$(git rev-parse --short HEAD)"
-          echo "Tag: $TAG"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "$TAG"
-          git push origin "$TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+      # Note: this workflow runs on explicit tag pushes (or manual dispatch).
+      # We intentionally do NOT create tags here to avoid accidental or recursive runs.
 
       - name: Build cross-platform binaries
         run: |
@@ -61,7 +55,8 @@ jobs:
         id: gh_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.tag.outputs.tag }}
+          # When triggered by a tag push, github.ref_name contains the tag (e.g. v1.2.3)
+          tag_name: ${{ github.ref_name }}
           files: releases/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
