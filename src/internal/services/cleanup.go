@@ -27,20 +27,14 @@ func (s *CleanupService) ProcessSonarrWebhook(webhook models.SonarrWebhook) erro
 		logrus.WithFields(logrus.Fields{
 			"title":  webhook.Series.Title,
 			"tmdbId": webhook.Series.TmdbID,
-			"tvdbId": webhook.Series.TvdbID,
 		}).Info("Processing series deletion")
 
-		// Overseer uses TMDB ID for all media types
+		// Sonarr = TV shows, use TV endpoint directly
 		if webhook.Series.TmdbID > 0 {
-			return s.overseer.RemoveRequestsByTmdbID(webhook.Series.TmdbID)
+			return s.overseer.RemoveTVShowByTmdbID(webhook.Series.TmdbID)
 		}
 
-		// Fallback to TVDB (limited support)
-		if webhook.Series.TvdbID > 0 {
-			return s.overseer.RemoveRequestsByTvdbID(webhook.Series.TvdbID)
-		}
-
-		logrus.WithField("title", webhook.Series.Title).Warn("No TMDB or TVDB ID available")
+		logrus.WithField("title", webhook.Series.Title).Warn("No TMDB ID available")
 	}
 	return nil
 }
@@ -61,8 +55,9 @@ func (s *CleanupService) ProcessRadarrWebhook(webhook models.RadarrWebhook) erro
 			"tmdbId": webhook.Movie.TmdbID,
 		}).Info("Processing movie deletion")
 
+		// Radarr = Movies, use movie endpoint directly
 		if webhook.Movie.TmdbID > 0 {
-			return s.overseer.RemoveRequestsByTmdbID(webhook.Movie.TmdbID)
+			return s.overseer.RemoveMovieByTmdbID(webhook.Movie.TmdbID)
 		}
 
 		logrus.WithField("title", webhook.Movie.Title).Warn("No TMDB ID available")
