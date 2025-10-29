@@ -2,6 +2,10 @@
 
 **Automatically sync deletions from Sonarr/Radarr to Overseer** - allowing media to be re-requested after deletion.
 
+<!-- CI / Release / Coverage badges -->
+[![CI](https://github.com/mayvqt/ArrSync/actions/workflows/ci.yml/badge.svg)](https://github.com/mayvqt/ArrSync/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/mayvqt/ArrSync?style=flat-square)](https://github.com/mayvqt/ArrSync/releases/latest)
+
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -170,6 +174,10 @@ curl -X POST http://localhost:8080/webhook/sonarr \
 # Test health endpoint
 curl http://localhost:8080/health
 ```
+
+## 📈 Badges and Coverage
+
+The repository includes badges for CI and releases at the top of this README.
 
 ---
 

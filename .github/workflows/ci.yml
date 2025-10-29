@@ -37,8 +37,17 @@ jobs:
       - name: Run go vet
         run: cd src && go vet ./...
 
-      - name: Run tests
-        run: cd src && go test ./... -v
+      - name: Run tests with coverage
+        run: |
+          cd src
+          go test ./... -coverprofile=coverage.out -covermode=atomic
+          go tool cover -func=coverage.out | tail -n1
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: src/coverage.out
 
       - name: Build (sanity)
         run: |
