@@ -20,7 +20,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24.9'
           cache-dependency-path: src/go.sum
 
       - name: Install dependencies
@@ -41,7 +41,7 @@ jobs:
       - name: Run govulncheck
         uses: golang/govulncheck-action@v1
         with:
-          go-version-input: '1.23'
+          go-version-input: '1.24.9'
           work-dir: src
 
       - name: Run unit tests
@@ -69,7 +69,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24.9'
           cache-dependency-path: src/go.sum
 
       - name: Install dependencies
