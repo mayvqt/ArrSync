@@ -175,12 +175,6 @@ curl -X POST http://localhost:8080/webhook/sonarr \
 curl http://localhost:8080/health
 ```
 
-## 📈 Badges and Coverage
-
-The repository includes badges for CI and releases at the top of this README.
-
----
-
 ## 🏗️ Building
 
 ```bash
