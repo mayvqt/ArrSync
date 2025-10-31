@@ -26,6 +26,9 @@ type OverseerConfig struct {
 	Timeout    time.Duration
 	MaxRetries int
 	DryRun     bool
+	// HealthInterval controls how often the app polls Overseer for health.
+	// Value is parsed from seconds in the environment variable OVERSEER_POLL_INTERVAL.
+	HealthInterval time.Duration
 }
 
 type LogConfig struct {
@@ -43,11 +46,12 @@ func Load() (*Config, error) {
 			Port: getEnv("PORT", "8080"),
 		},
 		Overseer: OverseerConfig{
-			URL:        getEnv("OVERSEER_URL", ""),
-			APIKey:     getEnv("OVERSEER_API_KEY", ""),
-			Timeout:    getEnvDuration("API_TIMEOUT", 30*time.Second),
-			MaxRetries: getEnvInt("MAX_RETRIES", 3),
-			DryRun:     getEnvBool("DRY_RUN", false),
+			URL:            getEnv("OVERSEER_URL", ""),
+			APIKey:         getEnv("OVERSEER_API_KEY", ""),
+			Timeout:        getEnvDuration("API_TIMEOUT", 30*time.Second),
+			MaxRetries:     getEnvInt("MAX_RETRIES", 3),
+			DryRun:         getEnvBool("DRY_RUN", false),
+			HealthInterval: getEnvDuration("OVERSEER_POLL_INTERVAL", 60*time.Second),
 		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),
