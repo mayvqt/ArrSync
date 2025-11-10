@@ -1,0 +1,124 @@
+## Visual Studio / .NET Core
+/.idea/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+/bin/
+/obj/
+**/bin/
+**/obj/
+
+# Publish output
+/publish/
+*.Publish.xml
+
+# Rider
+.idea/
+
+# Visual Studio Code
+.vscode/
+
+# User-specific files
+*.user
+*.rsuser
+*.dotCover
+*.nunit
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+coverage*.json
+
+# NuGet
+.nuget/
+*.nupkg
+packages/
+
+# Dotnet local tools
+/.config/dotnet-tools.json
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+.secrets/
+
+# Docker
+**/.docker/
+
+# JetBrains Rider
+/.idea/
+
+# Ignore published output from dotnet publish
+**/publish/
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+vendor/
+
+# Go workspace file
+go.work
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+logs/
+
+# Build output
+dist/
+build/
+
+# Release and build artifacts
+releases/
+
+# Local build outputs
+arrsync
+
+# Test coverage artifacts
+coverage.out
+coverage.html
+ArrSync
