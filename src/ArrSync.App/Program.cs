@@ -1,8 +1,7 @@
+using ArrSync.App;
+using ArrSync.App.Configuration;
+using ArrSync.App.Endpoints;
 using ArrSync.App.Models;
-using ArrSync.App.Services;
-using Polly;
-using Polly.Extensions.Http;
-using Polly.Timeout;
 using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);

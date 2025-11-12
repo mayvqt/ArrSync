@@ -52,8 +52,8 @@ public class OverseerClient : IOverseerClient
 
     public async Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct)
     {
-        var operation = "health";
-        OverseerCallCounter.WithLabels(operation, "start").Inc();
+        const string operation = Constants.Operations.Health;
+        OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Start).Inc();
         using (OverseerLatency.WithLabels(operation).NewTimer())
         {
             try
@@ -63,13 +63,13 @@ public class OverseerClient : IOverseerClient
                 {
                     _available = true;
                     OverseerAvailableGauge.Set(1);
-                    OverseerCallCounter.WithLabels(operation, "ok").Inc();
+                    OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Ok).Inc();
                     return (true, "ok");
                 }
 
                 _available = false;
                 OverseerAvailableGauge.Set(0);
-                OverseerCallCounter.WithLabels(operation, "error").Inc();
+                OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Error).Inc();
                 OverseerFailureCounter.WithLabels(operation).Inc();
                 return (false, $"status: {(int)resp.StatusCode}");
             }
@@ -77,7 +77,7 @@ public class OverseerClient : IOverseerClient
             {
                 _available = false;
                 OverseerAvailableGauge.Set(0);
-                OverseerCallCounter.WithLabels(operation, "exception").Inc();
+                OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Exception).Inc();
                 OverseerFailureCounter.WithLabels(operation).Inc();
                 _log.LogWarning(ex, "Overseer health check failed");
                 return (false, ex.Message);
@@ -87,12 +87,12 @@ public class OverseerClient : IOverseerClient
 
     public async Task<int?> GetMediaIdByTmdbAsync(int tmdbId, string mediaType, CancellationToken ct)
     {
-        var operation = "getMedia";
-        OverseerCallCounter.WithLabels(operation, "start").Inc();
+        const string operation = Constants.Operations.GetMedia;
+        OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Start).Inc();
         if (!_available)
         {
             _log.LogWarning("Overseer unavailable, skipping lookup for tmdb {tmdbId}", tmdbId);
-            OverseerCallCounter.WithLabels(operation, "skipped").Inc();
+            OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Skipped).Inc();
             return null;
         }
 
@@ -113,13 +113,13 @@ public class OverseerClient : IOverseerClient
 
                     if (resp.StatusCode == HttpStatusCode.NotFound)
                     {
-                        OverseerCallCounter.WithLabels(operation, "notfound").Inc();
+                        OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.NotFound).Inc();
                         return null; // not found
                     }
 
                     if (resp.IsSuccessStatusCode)
                     {
-                        OverseerCallCounter.WithLabels(operation, "ok").Inc();
+                        OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Ok).Inc();
                         using var stream = await resp.Content.ReadAsStreamAsync(ct);
                         var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
                         if (doc.RootElement.TryGetProperty("mediaInfo", out var mi) &&
@@ -163,12 +163,12 @@ public class OverseerClient : IOverseerClient
 
     public async Task<bool> DeleteMediaAsync(int id, CancellationToken ct)
     {
-        var operation = "deleteMedia";
-        OverseerCallCounter.WithLabels(operation, "start").Inc();
+        const string operation = Constants.Operations.DeleteMedia;
+        OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Start).Inc();
         if (!_available)
         {
             _log.LogWarning("Overseer unavailable, skipping delete id {id}", id);
-            OverseerCallCounter.WithLabels(operation, "skipped").Inc();
+            OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Skipped).Inc();
             return false;
         }
 
@@ -186,7 +186,7 @@ public class OverseerClient : IOverseerClient
                     if (resp.IsSuccessStatusCode)
                     {
                         _available = true;
-                        OverseerCallCounter.WithLabels(operation, "ok").Inc();
+                        OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Ok).Inc();
                         return true;
                     }
 

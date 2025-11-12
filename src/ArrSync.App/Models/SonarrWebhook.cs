@@ -2,24 +2,50 @@ using System.Text.Json.Serialization;
 
 namespace ArrSync.App.Models;
 
-public class SonarrWebhook
+/// <summary>
+/// Webhook payload received from Sonarr.
+/// </summary>
+public sealed record SonarrWebhook
 {
-    [JsonPropertyName("eventType")] public string? EventType { get; set; }
-    [JsonPropertyName("instanceName")] public string? InstanceName { get; set; }
-    [JsonPropertyName("series")] public SonarrSeries? Series { get; set; }
+    [JsonPropertyName("eventType")] 
+    public string? EventType { get; init; }
+    
+    [JsonPropertyName("instanceName")] 
+    public string? InstanceName { get; init; }
+    
+    [JsonPropertyName("series")] 
+    public SonarrSeries? Series { get; init; }
 }
 
-public class SonarrSeries
+/// <summary>
+/// Series information from Sonarr webhook.
+/// </summary>
+public sealed record SonarrSeries
 {
-    [JsonPropertyName("id")] public int Id { get; set; }
-    [JsonPropertyName("title")] public string? Title { get; set; }
-    [JsonPropertyName("tmdbId")] public int TmdbId { get; set; }
-    [JsonPropertyName("added")] public DateTime? Added { get; set; }
-    [JsonPropertyName("images")] public List<SonarrImage>? Images { get; set; }
+    [JsonPropertyName("id")] 
+    public int Id { get; init; }
+    
+    [JsonPropertyName("title")] 
+    public string? Title { get; init; }
+    
+    [JsonPropertyName("tmdbId")] 
+    public int TmdbId { get; init; }
+    
+    [JsonPropertyName("added")] 
+    public DateTime? Added { get; init; }
+    
+    [JsonPropertyName("images")] 
+    public IReadOnlyList<SonarrImage>? Images { get; init; }
 }
 
-public class SonarrImage
+/// <summary>
+/// Image information from Sonarr series.
+/// </summary>
+public sealed record SonarrImage
 {
-    [JsonPropertyName("coverType")] public string? CoverType { get; set; }
-    [JsonPropertyName("url")] public string? URL { get; set; }
+    [JsonPropertyName("coverType")] 
+    public string? CoverType { get; init; }
+    
+    [JsonPropertyName("url")] 
+    public string? URL { get; init; }
 }

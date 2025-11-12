@@ -3,42 +3,55 @@ using Microsoft.Extensions.Options;
 
 namespace ArrSync.App.Services;
 
-public class OverseerMonitorService : BackgroundService
+/// <summary>
+/// Background service that periodically monitors Overseerr availability.
+/// </summary>
+public sealed class OverseerMonitorService : BackgroundService
 {
     private readonly IOverseerClient _client;
     private readonly Config _opts;
+    private readonly ILogger<OverseerMonitorService> _log;
 
-    public OverseerMonitorService(IOverseerClient client, IOptions<Config> opts)
+    public OverseerMonitorService(
+        IOverseerClient client, 
+        IOptions<Config> opts,
+        ILogger<OverseerMonitorService> log)
     {
-        _client = client;
-        _opts = opts.Value;
+        _client = client ?? throw new ArgumentNullException(nameof(client));
+        _opts = opts?.Value ?? throw new ArgumentNullException(nameof(opts));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var interval = TimeSpan.FromSeconds(Math.Max(1, _opts.MonitorIntervalSeconds));
-        // Wait the first interval before doing the initial check so the rest of the app can come up
-        // and to avoid noisy logs if Overseer is momentarily unavailable at startup.
         var failureCount = 0;
+
+        // Initial delay to allow the app to start up
         await Task.Delay(interval, stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                var (ok, _) = await _client.HealthCheckAsync(stoppingToken);
+                var (ok, details) = await _client.HealthCheckAsync(stoppingToken);
                 if (ok)
-                    failureCount = 0; // reset on success
+                {
+                    failureCount = 0;
+                }
                 else
+                {
                     failureCount++;
+                    _log.LogWarning("Overseerr health check failed: {Details}", details);
+                }
             }
-            catch
+            catch (Exception ex)
             {
-                // client already logs; increment failure count to back off
                 failureCount++;
+                _log.LogError(ex, "Exception during Overseerr health check");
             }
 
-            // adaptive delay: increase delay when failures happen, up to 5x the configured interval
+            // Adaptive backoff: increase delay on failures, up to 5x the configured interval
             var backoffMultiplier = Math.Min(1 + failureCount, 5);
             var nextDelay = TimeSpan.FromMilliseconds(interval.TotalMilliseconds * backoffMultiplier);
             await Task.Delay(nextDelay, stoppingToken);

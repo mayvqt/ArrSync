@@ -18,14 +18,12 @@ public class CleanupService
 
     public async Task ProcessSonarrAsync(int tmdbId, CancellationToken ct)
     {
-        // Sonarr series -> type "tv"
-        await ProcessAsync(tmdbId, "tv", ct);
+        await ProcessAsync(tmdbId, Constants.MediaTypes.Tv, ct);
     }
 
     public async Task ProcessRadarrAsync(int tmdbId, CancellationToken ct)
     {
-        // Radarr movie -> type "movie"
-        await ProcessAsync(tmdbId, "movie", ct);
+        await ProcessAsync(tmdbId, Constants.MediaTypes.Movie, ct);
     }
 
     private async Task ProcessAsync(int tmdbId, string mediaType, CancellationToken ct)
