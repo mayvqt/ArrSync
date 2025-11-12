@@ -2,6 +2,7 @@ namespace ArrSync.App;
 
 /// <summary>
 /// Application-wide constants for magic strings and values.
+/// Moved into Configuration folder for better organization while retaining the original namespace.
 /// </summary>
 public static class Constants
 {

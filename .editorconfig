@@ -1,0 +1,23 @@
+# EditorConfig to enforce consistent C# code style across the repository
+root = true
+
+[*.{cs,vb}]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+
+[*.cs]
+# Prefer file-scoped namespace declarations (available in modern C#)
+# Valid values: file_scoped or block_scoped. Set severity to suggestion (or warning/error as you prefer).
+csharp_style_namespace_declarations = file_scoped:suggestion
+
+# Common preferences
+csharp_new_line_before_open_brace = all:suggestion
+csharp_prefer_simple_default_expression = true:suggestion
+csharp_prefer_braces = true:suggestion
+
+[*.{csproj,props,targets}]
+indent_style = space
+indent_size = 2

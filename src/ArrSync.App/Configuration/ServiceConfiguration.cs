@@ -1,5 +1,9 @@
 using ArrSync.App.Models;
-using ArrSync.App.Services;
+using ArrSync.App.Services.Cleanup;
+using ArrSync.App.Services.Monitoring;
+using ArrSync.App.Services.Http;
+using ArrSync.App.Services.Clients;
+// Note: OverseerClient implementation lives in Services.Clients namespace. We reference it by fully-qualified name below to avoid ambiguity.
 using Polly;
 using Polly.Extensions.Http;
 using Polly.Timeout;
@@ -18,11 +22,30 @@ public static class ServiceConfiguration
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var overseerUrl = configuration[Constants.ConfigKeys.OverseerUrl] ?? "http://localhost:5055";
+        // Read values and apply sane defaults / validation
+        var overseerUrl = configuration[Constants.ConfigKeys.OverseerUrl];
+        if (string.IsNullOrWhiteSpace(overseerUrl))
+        {
+            overseerUrl = "http://localhost:5055"; // safe default
+        }
+
+        // Ensure we have a valid absolute URI for the HttpClient base address
+        if (!Uri.TryCreate(overseerUrl, UriKind.Absolute, out var baseUri))
+        {
+            // Fallback to localhost if the configured value is malformed
+            baseUri = new Uri("http://localhost:5055");
+        }
+
         var overseerKey = configuration[Constants.ConfigKeys.OverseerApiKey];
+
         var timeoutSeconds = int.TryParse(configuration[Constants.ConfigKeys.TimeoutSeconds], out var t) ? t : 30;
+        timeoutSeconds = Math.Max(1, timeoutSeconds);
+
         var maxRetries = int.TryParse(configuration[Constants.ConfigKeys.MaxRetries], out var mr) ? mr : 3;
+        maxRetries = Math.Max(0, maxRetries);
+
         var initialBackoff = int.TryParse(configuration[Constants.ConfigKeys.InitialBackoffSeconds], out var ib) ? ib : 1;
+        if (initialBackoff <= 0) initialBackoff = 1;
 
         // Retry policy with exponential backoff
         var retryPolicy = HttpPolicyExtensions
@@ -43,9 +66,11 @@ public static class ServiceConfiguration
         // Combine policies: timeout applies per retry attempt
         var combinedPolicy = Policy.WrapAsync(retryPolicy, circuitBreaker, timeoutPolicy);
 
-        services.AddHttpClient<IOverseerClient, OverseerClient>("overseer", client =>
+    // Register the concrete typed client and expose it via the IOverseerClient interface
+    // Register the low-level HTTP abstraction as a typed client so it receives the configured HttpClient
+    services.AddHttpClient<ArrSync.App.Services.Http.OverseerHttp>(client =>
             {
-                client.BaseAddress = new Uri(overseerUrl);
+                client.BaseAddress = baseUri;
                 client.Timeout = Timeout.InfiniteTimeSpan; // Polly handles timeouts
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Add(Constants.Headers.Accept, "application/json");
@@ -60,6 +85,10 @@ public static class ServiceConfiguration
             })
             .AddHttpMessageHandler(() => new PolicyHandler(combinedPolicy));
 
+    // Register the high-level client that depends on the IOverseerHttp abstraction
+    services.AddTransient<ArrSync.App.Services.Clients.OverseerClient>();
+    services.AddTransient<IOverseerClient>(sp => sp.GetRequiredService<ArrSync.App.Services.Clients.OverseerClient>());
+
         return services;
     }
 
@@ -68,8 +97,13 @@ public static class ServiceConfiguration
     /// </summary>
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        services.AddSingleton<CleanupService>();
+    // Register cleanup service by its interface for testability and clearer DI boundaries
+    services.AddSingleton<ICleanupService, CleanupService>();
+        services.AddSingleton<ArrSync.App.Services.Timing.IPeriodicTimerFactory, ArrSync.App.Services.Timing.PeriodicTimerFactory>();
         services.AddHostedService<OverseerMonitorService>();
+
+    // Register config validator so the app fails fast on invalid configuration
+    services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<ArrSync.App.Models.Config>, ConfigValidation>();
         return services;
     }
 

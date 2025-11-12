@@ -7,8 +7,10 @@ using Prometheus;
 var builder = WebApplication.CreateBuilder(args);
 
 // Bind application config from configuration section `ArrSync:Config` and environment vars
-builder.Services.Configure<Config>(builder.Configuration.GetSection("ArrSync:Config"));
 builder.Configuration.AddEnvironmentVariables();
+builder.Services.AddOptions<Config>()
+    .Bind(builder.Configuration.GetSection("ArrSync:Config"))
+    .ValidateOnStart();
 
 // Configure webhook port if specified
 var webhookPort = int.TryParse(
@@ -35,11 +37,31 @@ var app = builder.Build();
 try
 {
     var config = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Config>>().Value;
+    // Sanity-check configuration and log a short, non-sensitive summary
+    var overseerUrl = string.IsNullOrWhiteSpace(config.OverseerUrl) ? "http://localhost:5055" : config.OverseerUrl;
+    if (string.IsNullOrWhiteSpace(config.OverseerUrl))
+    {
+        app.Logger.LogWarning("OverseerUrl not configured, falling back to default {DefaultUrl}", overseerUrl);
+    }
+
+    if (config.TimeoutSeconds < 1)
+    {
+        app.Logger.LogWarning("TimeoutSeconds value {Timeout} is invalid, using 30s", config.TimeoutSeconds);
+        config.TimeoutSeconds = 30;
+    }
+
+    if (config.MonitorIntervalSeconds < 1)
+    {
+        app.Logger.LogWarning("MonitorIntervalSeconds value {Interval} is invalid, using 60s", config.MonitorIntervalSeconds);
+        config.MonitorIntervalSeconds = 60;
+    }
+
     app.Logger.LogInformation(
-        "Starting ArrSync - OverseerUrl={OverseerUrl} DryRun={DryRun} MonitorInterval={MonitorInterval}s",
-        config.OverseerUrl ?? "http://localhost:5055",
+        "Starting ArrSync - OverseerUrl={OverseerUrl} DryRun={DryRun} MonitorInterval={MonitorInterval}s Timeout={Timeout}s",
+        overseerUrl,
         config.DryRun,
-        config.MonitorIntervalSeconds);
+        config.MonitorIntervalSeconds,
+        config.TimeoutSeconds);
 }
 catch (Exception ex)
 {

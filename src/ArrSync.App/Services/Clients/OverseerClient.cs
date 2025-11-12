@@ -2,9 +2,9 @@ using System.Net;
 using System.Text.Json;
 using ArrSync.App.Models;
 using Microsoft.Extensions.Options;
+using ArrSync.App.Services.Http;
 using Prometheus;
-
-namespace ArrSync.App.Services;
+namespace ArrSync.App.Services.Clients;
 
 public class OverseerClient : IOverseerClient
 {
@@ -31,17 +31,17 @@ public class OverseerClient : IOverseerClient
     private static readonly Gauge OverseerAvailableGauge = Metrics.CreateGauge("arrsync_overseer_available",
         "Overseer availability (1 = available, 0 = unavailable)");
 
-    private readonly HttpClient _client;
+    private readonly IOverseerHttp _http;
     private readonly ILogger<OverseerClient> _log;
     private readonly Config _opts;
-    private readonly Random _rng = new();
+    // Use thread-safe Random.Shared to avoid concurrency issues
     private bool _available = true;
 
-    public OverseerClient(HttpClient client, IOptions<Config> opts, ILogger<OverseerClient> log)
+    public OverseerClient(IOverseerHttp http, IOptions<Config> opts, ILogger<OverseerClient> log)
     {
-        _client = client;
-        _opts = opts.Value;
-        _log = log;
+        _http = http ?? throw new ArgumentNullException(nameof(http));
+        _opts = opts?.Value ?? throw new ArgumentNullException(nameof(opts));
+        _log = log ?? throw new ArgumentNullException(nameof(log));
         OverseerAvailableGauge.Set(_available ? 1 : 0);
     }
 
@@ -56,9 +56,9 @@ public class OverseerClient : IOverseerClient
         OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Start).Inc();
         using (OverseerLatency.WithLabels(operation).NewTimer())
         {
-            try
-            {
-                using var resp = await _client.GetAsync("/api/v1/status", ct);
+                try
+                {
+                    using var resp = await _http.GetAsync("/api/v1/status", ct).ConfigureAwait(false);
                 if (resp.IsSuccessStatusCode)
                 {
                     _available = true;
@@ -109,7 +109,7 @@ public class OverseerClient : IOverseerClient
             {
                 try
                 {
-                    using var resp = await _client.GetAsync(url, ct);
+                    using var resp = await _http.GetAsync(url, ct).ConfigureAwait(false);
 
                     if (resp.StatusCode == HttpStatusCode.NotFound)
                     {
@@ -120,21 +120,13 @@ public class OverseerClient : IOverseerClient
                     if (resp.IsSuccessStatusCode)
                     {
                         OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Ok).Inc();
-                        using var stream = await resp.Content.ReadAsStreamAsync(ct);
-                        var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-                        if (doc.RootElement.TryGetProperty("mediaInfo", out var mi) &&
-                            mi.ValueKind == JsonValueKind.Object && mi.TryGetProperty("id", out var idEl) &&
-                            idEl.GetInt32() != 0) return idEl.GetInt32();
-                        if (doc.RootElement.TryGetProperty("id", out var id2) && id2.ValueKind == JsonValueKind.Number)
-                        {
-                            var idVal = id2.GetInt32();
-                            if (idVal != 0) return idVal;
-                        }
+                        var mediaId = await ParseMediaIdAsync(resp.Content, ct).ConfigureAwait(false);
+                        if (mediaId.HasValue) return mediaId.Value;
 
                         throw new InvalidOperationException("Could not find media id in response");
                     }
 
-                    var text = await resp.Content.ReadAsStringAsync(ct);
+                    var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
                     throw new HttpRequestException($"Unexpected status {(int)resp.StatusCode}: {text}");
                 }
                 catch (Exception ex) when (!(ex is OperationCanceledException))
@@ -146,7 +138,7 @@ public class OverseerClient : IOverseerClient
                         var backoff = ComputeBackoff(attempts);
                         _log.LogWarning(ex, "GetMediaIdByTmdb attempt {attempt} failed, backing off {backoff}",
                             attempts, backoff);
-                        await Task.Delay(backoff, ct);
+                        await Task.Delay(backoff, ct).ConfigureAwait(false);
                         continue;
                     }
 
@@ -158,6 +150,31 @@ public class OverseerClient : IOverseerClient
         }
 
         if (lastEx != null) throw lastEx;
+        return null;
+    }
+
+    private static async Task<int?> ParseMediaIdAsync(HttpContent content, CancellationToken ct)
+    {
+        await using var stream = await content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+
+        if (doc.RootElement.ValueKind == JsonValueKind.Object)
+        {
+            if (doc.RootElement.TryGetProperty("mediaInfo", out var mi) &&
+                mi.ValueKind == JsonValueKind.Object && mi.TryGetProperty("id", out var idEl) &&
+                idEl.ValueKind == JsonValueKind.Number)
+            {
+                var id = idEl.GetInt32();
+                if (id != 0) return id;
+            }
+
+            if (doc.RootElement.TryGetProperty("id", out var id2) && id2.ValueKind == JsonValueKind.Number)
+            {
+                var idVal = id2.GetInt32();
+                if (idVal != 0) return idVal;
+            }
+        }
+
         return null;
     }
 
@@ -182,7 +199,7 @@ public class OverseerClient : IOverseerClient
             {
                 try
                 {
-                    using var resp = await _client.DeleteAsync($"/api/v1/media/{id}", ct);
+                    using var resp = await _http.DeleteAsync($"/api/v1/media/{id}", ct).ConfigureAwait(false);
                     if (resp.IsSuccessStatusCode)
                     {
                         _available = true;
@@ -190,7 +207,7 @@ public class OverseerClient : IOverseerClient
                         return true;
                     }
 
-                    var text = await resp.Content.ReadAsStringAsync(ct);
+                    var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
                     throw new HttpRequestException($"Unexpected status {(int)resp.StatusCode}: {text}");
                 }
                 catch (Exception ex) when (!(ex is OperationCanceledException))
@@ -201,7 +218,7 @@ public class OverseerClient : IOverseerClient
                         var backoff = ComputeBackoff(attempts);
                         _log.LogWarning(ex, "DeleteMedia attempt {attempt} failed, backing off {backoff}", attempts,
                             backoff);
-                        await Task.Delay(backoff, ct);
+                        await Task.Delay(backoff, ct).ConfigureAwait(false);
                         continue;
                     }
 
@@ -218,10 +235,14 @@ public class OverseerClient : IOverseerClient
     private TimeSpan ComputeBackoff(int attempt)
     {
         var maxBackoff = TimeSpan.FromSeconds(30);
-        var baseBackoff =
-            TimeSpan.FromSeconds(Math.Min(maxBackoff.TotalSeconds, _opts.InitialBackoffSeconds * Math.Pow(2, attempt)));
-        // full jitter up to baseBackoff
-        var jitter = _rng.NextDouble();
-        return TimeSpan.FromMilliseconds(baseBackoff.TotalMilliseconds * jitter);
+        // attempt is 1-based; use exponential backoff with cap
+        var exp = Math.Pow(2, Math.Max(0, attempt - 1));
+        var baseSeconds = Math.Min(maxBackoff.TotalSeconds, Math.Max(0.1, _opts.InitialBackoffSeconds) * exp);
+        var baseBackoff = TimeSpan.FromSeconds(baseSeconds);
+        // Use a conservative jitter: range [0.5*base, 1.0*base] to avoid near-zero delays
+        var jitter = Random.Shared.NextDouble() * 0.5 + 0.5;
+        var backoff = TimeSpan.FromMilliseconds(baseBackoff.TotalMilliseconds * jitter);
+        _log.LogDebug("Computed backoff for attempt {Attempt}: {BackoffMs}ms", attempt, backoff.TotalMilliseconds);
+        return backoff;
     }
 }

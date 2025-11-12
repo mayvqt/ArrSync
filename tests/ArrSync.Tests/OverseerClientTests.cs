@@ -1,93 +1,75 @@
 using System;
 using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
-using ArrSync.App.Services;
 using ArrSync.App.Models;
-using FluentAssertions;
+using ArrSync.App.Services.Clients;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace ArrSync.Tests;
 
-public class OverseerClientTests
+internal class DelegateHandler : HttpMessageHandler
 {
-    [Fact]
-    public async Task HealthCheck_ReturnsOk_When_Status200()
+    private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+
+    public DelegateHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
     {
-        using var handler = new MockHttpMessageHandler((req, ct) =>
-        {
-            var resp = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{ \"status\": \"ok\" }", Encoding.UTF8, "application/json")
-            };
-            return Task.FromResult(resp);
-        });
-
-        var httpClient = new HttpClient(handler, disposeHandler: false) { BaseAddress = new Uri("http://localhost") };
-    var opts = Options.Create(new ArrSync.App.Models.Config { MaxRetries = 1, InitialBackoffSeconds = 1 });
-        var client = new OverseerClient(httpClient, opts, NullLogger<OverseerClient>.Instance);
-
-        var (ok, detail) = await client.HealthCheckAsync(CancellationToken.None);
-        ok.Should().BeTrue();
-        detail.Should().Contain("ok");
-    }
-
-    [Fact]
-    public async Task GetMediaIdByTmdb_ReturnsId_When_MediaInfoPresent()
-    {
-        var json = "{ \"mediaInfo\": { \"id\": 42 } }";
-        using var handler = new MockHttpMessageHandler((req, ct) =>
-        {
-            var resp = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
-            };
-            return Task.FromResult(resp);
-        });
-
-        var httpClient = new HttpClient(handler, disposeHandler: false) { BaseAddress = new Uri("http://localhost") };
-    var opts = Options.Create(new ArrSync.App.Models.Config { MaxRetries = 1, InitialBackoffSeconds = 1 });
-        var client = new OverseerClient(httpClient, opts, NullLogger<OverseerClient>.Instance);
-
-        var id = await client.GetMediaIdByTmdbAsync(123, "movie", CancellationToken.None);
-        id.Should().Be(42);
-    }
-}
-
-// Simple Test helpers
-internal class TestHttpClientFactory : IHttpClientFactory
-{
-    private readonly HttpMessageHandler _handler;
-
-    public TestHttpClientFactory(HttpMessageHandler handler)
-    {
-        _handler = handler;
-    }
-
-    public HttpClient CreateClient(string name)
-    {
-        return new HttpClient(_handler, disposeHandler: false)
-        {
-            BaseAddress = new Uri("http://localhost")
-        };
-    }
-}
-
-internal class MockHttpMessageHandler : HttpMessageHandler
-{
-    private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _handler;
-
-    public MockHttpMessageHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
-    {
-        _handler = handler;
+        _responder = responder ?? throw new ArgumentNullException(nameof(responder));
     }
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        => _handler(request, cancellationToken);
+    {
+        return Task.FromResult(_responder(request));
+    }
+}
+
+public class OverseerClientTests
+{
+    private static OverseerClient CreateClient(Func<HttpRequestMessage, HttpResponseMessage> responder)
+    {
+        var handler = new DelegateHandler(responder);
+        var http = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://overseer")
+        };
+
+        var cfg = Options.Create(new Config { MaxRetries = 1, InitialBackoffSeconds = 1 });
+        var logger = NullLogger<OverseerClient>.Instance;
+        var overseerHttp = new ArrSync.App.Services.Http.OverseerHttp(http);
+        return new OverseerClient(overseerHttp, cfg, logger);
+    }
+
+    [Fact]
+    public async Task HealthCheck_ReturnsOk_WhenStatus200()
+    {
+        var client = CreateClient(req => new HttpResponseMessage(HttpStatusCode.OK));
+        var (ok, details) = await client.HealthCheckAsync(CancellationToken.None);
+        Assert.True(ok);
+        Assert.Equal("ok", details);
+    }
+
+    [Fact]
+    public async Task GetMediaIdByTmdb_ReturnsId_WhenJsonHasId()
+    {
+        var json = "{ \"id\": 123 }";
+        var client = CreateClient(req =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json)
+            });
+
+        var id = await client.GetMediaIdByTmdbAsync(555, "movie", CancellationToken.None);
+        Assert.Equal(123, id);
+    }
+
+    [Fact]
+    public async Task DeleteMedia_ReturnsTrue_OnSuccess()
+    {
+        var client = CreateClient(req => new HttpResponseMessage(HttpStatusCode.OK));
+        var ok = await client.DeleteMediaAsync(42, CancellationToken.None);
+        Assert.True(ok);
+    }
 }

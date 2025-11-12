@@ -1,6 +1,0 @@
-namespace ArrSync.App;
-
-// Expose a Program type for WebApplicationFactory in integration tests.
-public class Program
-{
-}

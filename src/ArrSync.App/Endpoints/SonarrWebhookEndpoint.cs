@@ -1,6 +1,6 @@
 using ArrSync.App.Helpers;
 using ArrSync.App.Models;
-using ArrSync.App.Services;
+using ArrSync.App.Services.Cleanup;
 using Microsoft.Extensions.Options;
 
 namespace ArrSync.App.Endpoints;
@@ -24,8 +24,8 @@ public static class SonarrWebhookEndpoint
 
     private static async Task<IResult> HandleSonarrWebhook(
         HttpRequest request,
-        SonarrWebhook payload,
-        CleanupService cleanupService,
+    SonarrWebhook payload,
+    ICleanupService cleanupService,
         IOptions<Config> config,
         CancellationToken cancellationToken)
     {

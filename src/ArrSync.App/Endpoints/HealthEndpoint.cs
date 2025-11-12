@@ -1,5 +1,5 @@
 using ArrSync.App.Models;
-using ArrSync.App.Services;
+using ArrSync.App.Services.Clients;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ArrSync.App.Endpoints;

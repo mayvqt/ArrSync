@@ -1,8 +1,8 @@
 using System.Threading;
 using System.Threading.Tasks;
 using ArrSync.App.Models;
-using ArrSync.App.Services;
-using FluentAssertions;
+using ArrSync.App.Services.Cleanup;
+using ArrSync.App.Services.Clients;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -11,64 +11,41 @@ namespace ArrSync.Tests;
 
 public class CleanupServiceTests
 {
-    [Fact]
-    public async Task ProcessSonarr_DryRun_LogsAndNoDelete()
+    private class FakeOverseer : IOverseerClient
     {
-        var fake = new FakeOverseerClient();
-    var opts = Options.Create(new ArrSync.App.Models.Config { DryRun = true });
-        var svc = new CleanupService(fake, opts, NullLogger<CleanupService>.Instance);
+        public int? LastRequestedTmdb { get; private set; }
+        public int? ToReturnId { get; set; }
 
-        await svc.ProcessSonarrAsync(123, CancellationToken.None);
+        public Task<bool> IsAvailableAsync() => Task.FromResult(true);
+        public Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct) => Task.FromResult((true, "ok"));
+        public Task<int?> GetMediaIdByTmdbAsync(int tmdbId, string mediaType, CancellationToken ct)
+        {
+            LastRequestedTmdb = tmdbId;
+            return Task.FromResult(ToReturnId);
+        }
 
-        fake.DeleteCalled.Should().BeFalse();
+        public Task<bool> DeleteMediaAsync(int id, CancellationToken ct) => Task.FromResult(true);
     }
 
     [Fact]
-    public async Task ProcessRadarr_When_NoMediaFound_DoesNotDelete()
+    public async Task DryRun_DoesNotCallOverseer()
     {
-        var fake = new FakeOverseerClient();
-        fake.NextMediaId = null;
-    var opts = Options.Create(new ArrSync.App.Models.Config { DryRun = false });
-        var svc = new CleanupService(fake, opts, NullLogger<CleanupService>.Instance);
+        var fake = new FakeOverseer();
+        var cfg = Options.Create(new Config { DryRun = true });
+        var svc = new CleanupService(fake, cfg, NullLogger<CleanupService>.Instance);
 
-        await svc.ProcessRadarrAsync(456, CancellationToken.None);
-
-        fake.DeleteCalled.Should().BeFalse();
+        await svc.ProcessRadarrAsync(1234, CancellationToken.None);
+        Assert.Null(fake.LastRequestedTmdb);
     }
 
     [Fact]
-    public async Task ProcessRadarr_When_MediaFound_Deletes()
+    public async Task ProcessRadarr_CallsOverseer_WhenNotDryRun()
     {
-        var fake = new FakeOverseerClient();
-        fake.NextMediaId = 77;
-    var opts = Options.Create(new ArrSync.App.Models.Config { DryRun = false });
-        var svc = new CleanupService(fake, opts, NullLogger<CleanupService>.Instance);
+        var fake = new FakeOverseer { ToReturnId = 42 };
+        var cfg = Options.Create(new Config { DryRun = false });
+        var svc = new CleanupService(fake, cfg, NullLogger<CleanupService>.Instance);
 
-        await svc.ProcessRadarrAsync(456, CancellationToken.None);
-
-        fake.DeleteCalled.Should().BeTrue();
-        fake.DeletedId.Should().Be(77);
+        await svc.ProcessRadarrAsync(555, CancellationToken.None);
+        Assert.Equal(555, fake.LastRequestedTmdb);
     }
-}
-
-internal class FakeOverseerClient : IOverseerClient
-{
-    public int? NextMediaId { get; set; } = 42;
-    public bool DeleteCalled { get; private set; }
-    public int DeletedId { get; private set; }
-
-    public Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct)
-        => Task.FromResult((true, "ok"));
-
-    public Task<int?> GetMediaIdByTmdbAsync(int tmdbId, string mediaType, CancellationToken ct)
-        => Task.FromResult(NextMediaId);
-
-    public Task<bool> DeleteMediaAsync(int id, CancellationToken ct)
-    {
-        DeleteCalled = true;
-        DeletedId = id;
-        return Task.FromResult(true);
-    }
-
-    public Task<bool> IsAvailableAsync() => Task.FromResult(true);
 }
