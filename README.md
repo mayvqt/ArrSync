@@ -1,59 +1,52 @@
-# csharparrsync
+## ArrSync
 
-This is a .NET 8 scaffold of ArrSync (console/hosted app) intended as a starting point for porting the original Go project.
+ArrSync syncs deletion events from Sonarr and Radarr to Overseer.
 
-Build
+## Description
 
-```bash
-cd csharparrsync/src/ArrSync.App
-dotnet build
-```
+ArrSync listens for deletion webhooks from Sonarr and Radarr and forwards the relevant information to an Overseer instance.
 
-Run
+- Supported events: Sonarr/Radarr delete/remove events (native webhook payloads).
+- Validation: optional secret/HMAC signature verification for incoming webhooks to ensure authenticity.
+- Transformation: extracts the fields Overseer expects (title, release date, IDs, path, and deletion reason) and converts payloads when necessary.
+- Delivery: posts a compact deletion record to the configured Overseer API endpoint; supports retry/backoff on transient failures.
+- Observability and health: exposes a health endpoint and Prometheus metrics for monitoring delivery success and failure counts.
+- Configuration: all behavior is configured via `appsettings.{Environment}.json` in `src/ArrSync.App` (Overseer endpoint, retry policy, secrets, logging, and metrics).
 
-```bash
-# set required env vars before running
-export OVERSEER_URL="http://localhost:5055"
-export OVERSEER_API_KEY="your_api_key"
-dotnet run --project src/ArrSync.App
-```
+Use case: keep Overseer's database in sync with Sonarr/Radarr by ensuring removals performed in those apps are reflected in Overseer without duplicating other event types.
 
-Endpoints
+## Requirements
 
-- POST /webhook/sonarr — Sonarr deletion webhook
-- POST /webhook/radarr — Radarr deletion webhook
-- GET /health — Aggregated health including Overseerr
+- .NET 8 SDK
+- A Unix-like shell (bash) or Windows PowerShell for the commands below
 
-Notes
+## Quick start
 
-- The app is implemented as a hostable console application using the ASP.NET Core minimal APIs so it can accept HTTP webhook calls while remaining a general-purpose executable for future features.
-- Configuration is driven by environment variables. See `Program.cs` for keys.
-
-Configuration
--------------
-You can configure the app using environment variables or the `ArrSync:Config` section in `appsettings.json`.
-
-Important environment variables / config keys:
-- OVERSEER_URL or ArrSync:Config:Url — Overseerr base URL (default: http://localhost:5055)
- - OVERSEER_URL or ArrSync:Config:OverseerUrl — Overseerr base URL (default: http://localhost:5055)
-- OVERSEER_API_KEY or ArrSync:Config:ApiKey — Overseerr API key (optional for dev)
-- TIMEOUT_SECONDS or ArrSync:Config:TimeoutSeconds — HTTP client timeout in seconds (default: 10)
-- MAX_RETRIES or ArrSync:Config:MaxRetries — Max retry attempts for Overseerr calls (default: 3)
-- INITIAL_BACKOFF or ArrSync:Config:InitialBackoffSeconds — Initial backoff in seconds (default: 1)
-- DRY_RUN or ArrSync:Config:DryRun — When true, actions will be logged but not performed (default: false)
-- MONITOR_INTERVAL_SECONDS or ArrSync:Config:MonitorIntervalSeconds — Health poll interval for Overseerr monitor (default: 60)
-- WEBHOOK_PORT or ArrSync:Config:Port — Port the app listens on for incoming webhooks (default: 5011 if set in appsettings)
-- WEBHOOK_SECRET or ArrSync:Config:WebhookSecret — Optional secret that webhook providers must send in the `X-Webhook-Secret` header. When set, incoming webhooks without the header or with the wrong value will be rejected (recommended in production).
-
-Example (bash):
+Build the solution from the repository root:
 
 ```bash
-export OVERSEER_URL="http://localhost:5055"
-export OVERSEER_API_KEY="your_api_key"
-export DRY_RUN=true
-export WEBHOOK_PORT=5011
-export WEBHOOK_SECRET="my-super-secret"
-dotnet run --project src/ArrSync.App
+dotnet build ArrSync.sln -c Release
 ```
 
-For development you can edit `src/ArrSync.App/appsettings.Development.json` which is included in the scaffold.
+Run the tests:
+
+```bash
+dotnet test ArrSync.sln -c Release
+```
+
+Run the app (from the `src/ArrSync.App` folder):
+
+```bash
+cd src/ArrSync.App
+dotnet run --configuration Release
+```
+
+Configuration files (`appsettings.Development.json`, `appsettings.Production.json`) live in `src/ArrSync.App` and can be used to set endpoints, secrets, and monitoring options.
+
+## Contributing
+
+Small, focused pull requests are welcome. Follow the project's coding conventions and include tests for new features or bug fixes.
+
+## License
+
+This project is provided under the terms of its existing license. See the repository for details.
