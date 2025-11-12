@@ -1,10 +1,27 @@
+using System;
+using System.IO;
 using ArrSync.App;
 using ArrSync.App.Configuration;
 using ArrSync.App.Endpoints;
 using ArrSync.App.Models;
 using Prometheus;
 
-var builder = WebApplication.CreateBuilder(args);
+// Use the assembly folder as the content root so appsettings.* next to the binary are discovered
+var contentRoot = AppContext.BaseDirectory;
+
+// Prefer explicit environment variables; if none are set, pick Development when a dev config file exists
+// next to the assembly, otherwise default to Production.
+var envFromEnv = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+             ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+var defaultEnv = File.Exists(Path.Combine(contentRoot, "appsettings.Development.json")) ? "Development" : "Production";
+var environmentName = string.IsNullOrWhiteSpace(envFromEnv) ? defaultEnv : envFromEnv;
+
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = contentRoot,
+    EnvironmentName = environmentName,
+});
 
 // Bind application config from configuration section `ArrSync:Config` and environment vars
 builder.Configuration.AddEnvironmentVariables();

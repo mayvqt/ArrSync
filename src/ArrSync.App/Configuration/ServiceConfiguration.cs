@@ -85,6 +85,9 @@ public static class ServiceConfiguration
             })
             .AddHttpMessageHandler(() => new PolicyHandler(combinedPolicy));
 
+    // Expose the typed OverseerHttp via its testable interface so consumers can depend on IOverseerHttp
+    services.AddTransient<ArrSync.App.Services.Http.IOverseerHttp>(sp => sp.GetRequiredService<ArrSync.App.Services.Http.OverseerHttp>());
+
     // Register the high-level client that depends on the IOverseerHttp abstraction
     services.AddTransient<ArrSync.App.Services.Clients.OverseerClient>();
     services.AddTransient<IOverseerClient>(sp => sp.GetRequiredService<ArrSync.App.Services.Clients.OverseerClient>());
