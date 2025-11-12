@@ -1,9 +1,3 @@
-## ArrSync
-
-ArrSync syncs deletion events from Sonarr and Radarr to Overseer.
-
-## Description
-
 ArrSync listens for deletion webhooks from Sonarr and Radarr and forwards the relevant information to an Overseer instance.
 
 - Supported events: Sonarr/Radarr delete/remove events (native webhook payloads).
