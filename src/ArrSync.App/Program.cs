@@ -73,6 +73,19 @@ builder.Services.AddHostedService<OverseerMonitorService>();
 
 var app = builder.Build();
 
+// Log resolved ArrSync configuration at startup (mask secrets)
+try
+{
+    var resolvedConfig = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Config>>().Value;
+    var maskedKey = string.IsNullOrWhiteSpace(resolvedConfig.ApiKey) ? "<none>" : "****REDACTED****";
+    app.Logger.LogInformation("ArrSync configuration: Url={url} DryRun={dryRun} MonitorInterval={mi} WebhookSecretConfigured={hasSecret}",
+        resolvedConfig.Url ?? "<unspecified>", resolvedConfig.DryRun, resolvedConfig.MonitorIntervalSeconds, !string.IsNullOrWhiteSpace(resolvedConfig.WebhookSecret));
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "Failed to read ArrSync configuration on startup");
+}
+
 // metrics: expose /metrics and collect HTTP metrics
 app.UseMetricServer();
 app.UseHttpMetrics();
@@ -87,8 +100,16 @@ app.MapGet("/health", async (IOverseerClient oc, CancellationToken ct) =>
     return Results.Json(payload, statusCode: healthy ? 200 : 503);
 });
 
-app.MapPost("/webhook/sonarr", async (SonarrWebhook payload, CleanupService svc, CancellationToken ct) =>
+app.MapPost("/webhook/sonarr", async (HttpRequest req, SonarrWebhook payload, CleanupService svc, CancellationToken ct) =>
 {
+    // Optional webhook secret enforcement
+    var cfg = req.HttpContext.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptions<Config>>().Value;
+    if (!string.IsNullOrWhiteSpace(cfg.WebhookSecret))
+    {
+        if (!req.Headers.TryGetValue("X-Webhook-Secret", out var v) || v != cfg.WebhookSecret)
+            return Results.Unauthorized();
+    }
+
     if (string.Equals(payload.EventType, "Test", StringComparison.OrdinalIgnoreCase))
         return Results.Ok(new { message = "test event ignored" });
 
@@ -99,8 +120,15 @@ app.MapPost("/webhook/sonarr", async (SonarrWebhook payload, CleanupService svc,
     return Results.Ok(new { message = "processed" });
 });
 
-app.MapPost("/webhook/radarr", async (RadarrWebhook payload, CleanupService svc, CancellationToken ct) =>
+app.MapPost("/webhook/radarr", async (HttpRequest req, RadarrWebhook payload, CleanupService svc, CancellationToken ct) =>
 {
+    var cfg = req.HttpContext.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptions<Config>>().Value;
+    if (!string.IsNullOrWhiteSpace(cfg.WebhookSecret))
+    {
+        if (!req.Headers.TryGetValue("X-Webhook-Secret", out var v) || v != cfg.WebhookSecret)
+            return Results.Unauthorized();
+    }
+
     if (string.Equals(payload.EventType, "Test", StringComparison.OrdinalIgnoreCase))
         return Results.Ok(new { message = "test event ignored" });
 

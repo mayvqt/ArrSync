@@ -11,5 +11,9 @@ public sealed class Config
     public bool DryRun { get; set; } = false;
     public int MonitorIntervalSeconds { get; set; } = 60;
 
+    // Optional secret that webhook providers must provide in the X-Webhook-Secret header.
+    // When set, incoming webhook endpoints will require this header value to match.
+    public string? WebhookSecret { get; set; }
+
     // Future non-Overseer config fields can be added here
 }
