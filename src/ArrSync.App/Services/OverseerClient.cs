@@ -28,6 +28,8 @@ public class OverseerClient : IOverseerClient
             LabelNames = new[] { "operation" }
         });
 
+    private static readonly Gauge OverseerAvailableGauge = Metrics.CreateGauge("arrsync_overseer_available", "Overseer availability (1 = available, 0 = unavailable)");
+
     private readonly HttpClient _client;
     private readonly ILogger<OverseerClient> _log;
     private readonly Config _opts;
@@ -39,11 +41,12 @@ public class OverseerClient : IOverseerClient
         _client = client;
         _opts = opts.Value;
         _log = log;
+        OverseerAvailableGauge.Set(_available ? 1 : 0);
     }
 
-    public bool IsAvailable()
+    public Task<bool> IsAvailableAsync()
     {
-        return _available;
+        return Task.FromResult(_available);
     }
 
     public async Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct)
@@ -58,23 +61,26 @@ public class OverseerClient : IOverseerClient
                 if (resp.IsSuccessStatusCode)
                 {
                     _available = true;
+                    OverseerAvailableGauge.Set(1);
                     OverseerCallCounter.WithLabels(operation, "ok").Inc();
                     return (true, "ok");
                 }
 
                 _available = false;
+                OverseerAvailableGauge.Set(0);
                 OverseerCallCounter.WithLabels(operation, "error").Inc();
                 OverseerFailureCounter.WithLabels(operation).Inc();
                 return (false, $"status: {(int)resp.StatusCode}");
             }
-            catch (Exception ex)
-            {
-                _available = false;
-                OverseerCallCounter.WithLabels(operation, "exception").Inc();
-                OverseerFailureCounter.WithLabels(operation).Inc();
-                _log.LogWarning(ex, "Overseer health check failed");
-                return (false, ex.Message);
-            }
+                catch (Exception ex)
+                {
+                    _available = false;
+                    OverseerAvailableGauge.Set(0);
+                    OverseerCallCounter.WithLabels(operation, "exception").Inc();
+                    OverseerFailureCounter.WithLabels(operation).Inc();
+                    _log.LogWarning(ex, "Overseer health check failed");
+                    return (false, ex.Message);
+                }
         }
     }
 

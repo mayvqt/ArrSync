@@ -70,5 +70,5 @@ internal class FakeOverseerClient : IOverseerClient
         return Task.FromResult(true);
     }
 
-    public bool IsAvailable() => true;
+    public Task<bool> IsAvailableAsync() => Task.FromResult(true);
 }

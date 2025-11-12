@@ -19,26 +19,26 @@ public class OverseerClientRetryTests
     public async Task GetMediaIdByTmdb_RetriesOnTransientFailures_AndEventuallySucceeds()
     {
         int callCount = 0;
-        using var handler = new MockHttpMessageHandler(async (req, ct) =>
+        using var handler = new MockHttpMessageHandler((req, ct) =>
         {
             callCount++;
             if (callCount < 3)
             {
-                return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
                 {
                     Content = new StringContent("server error", Encoding.UTF8, "text/plain")
-                };
+                });
             }
 
-            return new HttpResponseMessage(HttpStatusCode.OK)
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("{ \"id\": 999 }", Encoding.UTF8, "application/json")
-            };
+            });
         });
 
-        var factory = new TestHttpClientFactory(handler);
+        var httpClient = new HttpClient(handler, disposeHandler: false) { BaseAddress = new Uri("http://localhost") };
     var opts = Options.Create(new ArrSync.App.Models.Config { MaxRetries = 5, InitialBackoffSeconds = 0 });
-        var client = new OverseerClient(factory, opts, NullLogger<OverseerClient>.Instance);
+        var client = new OverseerClient(httpClient, opts, NullLogger<OverseerClient>.Instance);
 
         var id = await client.GetMediaIdByTmdbAsync(123, "movie", CancellationToken.None);
         id.Should().Be(999);

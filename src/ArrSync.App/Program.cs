@@ -14,7 +14,9 @@ var config = builder.Configuration;
 // Try environment first, then ArrSync:Overseer section, then defaults
 var overseerUrl = config["OVERSEER_URL"] ?? config["ArrSync:Config:Url"] ?? "http://localhost:5055";
 var overseerKey = config["OVERSEER_API_KEY"] ?? config["ArrSync:Config:ApiKey"];
-var timeoutSeconds = int.TryParse(config["TIMEOUT_SECONDS"], out var t) ? t : 10;
+// Number of seconds to wait for an Overseer HTTP request before timing out.
+// Increased default from 10 to 30s to avoid premature TaskCanceledExceptions when Overseer is slow.
+var timeoutSeconds = int.TryParse(config["TIMEOUT_SECONDS"], out var t) ? t : 30;
 var logLevel = config["LOG_LEVEL"] ?? config["Logging:LogLevel:Default"] ?? "Information";
 
 builder.Logging.ClearProviders();
@@ -67,7 +69,11 @@ app.UseHttpMetrics();
 app.MapGet("/health", async (IOverseerClient oc, CancellationToken ct) =>
 {
     var (ok, detail) = await oc.HealthCheckAsync(ct);
-    return Results.Json(new { healthy = ok, details = detail });
+    var healthy = ok;
+    var status = healthy ? "healthy" : "degraded";
+    var overseerStatus = await oc.IsAvailableAsync() ? "available" : "unavailable";
+    var payload = new { status, service = "arrsync", healthy, overseer = overseerStatus };
+    return Results.Json(payload, statusCode: healthy ? 200 : 503);
 });
 
 app.MapPost("/webhook/sonarr", async (SonarrWebhook payload, CleanupService svc, CancellationToken ct) =>

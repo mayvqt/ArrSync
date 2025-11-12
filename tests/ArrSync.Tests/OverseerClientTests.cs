@@ -29,9 +29,9 @@ public class OverseerClientTests
             return Task.FromResult(resp);
         });
 
-        var factory = new TestHttpClientFactory(handler);
+        var httpClient = new HttpClient(handler, disposeHandler: false) { BaseAddress = new Uri("http://localhost") };
     var opts = Options.Create(new ArrSync.App.Models.Config { MaxRetries = 1, InitialBackoffSeconds = 1 });
-        var client = new OverseerClient(factory, opts, NullLogger<OverseerClient>.Instance);
+        var client = new OverseerClient(httpClient, opts, NullLogger<OverseerClient>.Instance);
 
         var (ok, detail) = await client.HealthCheckAsync(CancellationToken.None);
         ok.Should().BeTrue();
@@ -51,9 +51,9 @@ public class OverseerClientTests
             return Task.FromResult(resp);
         });
 
-        var factory = new TestHttpClientFactory(handler);
+        var httpClient = new HttpClient(handler, disposeHandler: false) { BaseAddress = new Uri("http://localhost") };
     var opts = Options.Create(new ArrSync.App.Models.Config { MaxRetries = 1, InitialBackoffSeconds = 1 });
-        var client = new OverseerClient(factory, opts, NullLogger<OverseerClient>.Instance);
+        var client = new OverseerClient(httpClient, opts, NullLogger<OverseerClient>.Instance);
 
         var id = await client.GetMediaIdByTmdbAsync(123, "movie", CancellationToken.None);
         id.Should().Be(42);
