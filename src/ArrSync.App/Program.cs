@@ -2,6 +2,7 @@ using ArrSync.App.Models;
 using ArrSync.App.Services;
 using Polly;
 using Polly.Extensions.Http;
+using Polly.Timeout;
 using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,7 +44,8 @@ var circuitBreaker = HttpPolicyExtensions
 // Per-attempt timeout controlled by Polly. We set the HttpClient.Timeout to infinite
 // and rely on the Polly timeout so the timeout is applied per attempt and cooperates
 // with Polly's retry/circuit-breaker behavior.
-var timeoutPolicy = Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(timeoutSeconds), Polly.Timeout.TimeoutStrategy.Optimistic);
+var timeoutPolicy =
+    Policy.TimeoutAsync<HttpResponseMessage>(TimeSpan.FromSeconds(timeoutSeconds), TimeoutStrategy.Optimistic);
 
 // Wrap policies so the timeout applies to each try.
 var combinedPolicy = Policy.WrapAsync(retryPolicy, circuitBreaker, timeoutPolicy);
@@ -52,7 +54,7 @@ builder.Services.AddHttpClient<IOverseerClient, OverseerClient>("overseer", clie
     {
         client.BaseAddress = new Uri(overseerUrl);
         // Use infinite on HttpClient so Polly's TimeoutPolicy controls per-attempt timing.
-        client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+        client.Timeout = Timeout.InfiniteTimeSpan;
         client.DefaultRequestHeaders.Accept.Clear();
         client.DefaultRequestHeaders.Add("Accept", "application/json");
         if (!string.IsNullOrWhiteSpace(overseerKey)) client.DefaultRequestHeaders.Add("X-Api-Key", overseerKey);

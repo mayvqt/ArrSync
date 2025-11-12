@@ -28,7 +28,8 @@ public class OverseerClient : IOverseerClient
             LabelNames = new[] { "operation" }
         });
 
-    private static readonly Gauge OverseerAvailableGauge = Metrics.CreateGauge("arrsync_overseer_available", "Overseer availability (1 = available, 0 = unavailable)");
+    private static readonly Gauge OverseerAvailableGauge = Metrics.CreateGauge("arrsync_overseer_available",
+        "Overseer availability (1 = available, 0 = unavailable)");
 
     private readonly HttpClient _client;
     private readonly ILogger<OverseerClient> _log;
@@ -72,15 +73,15 @@ public class OverseerClient : IOverseerClient
                 OverseerFailureCounter.WithLabels(operation).Inc();
                 return (false, $"status: {(int)resp.StatusCode}");
             }
-                catch (Exception ex)
-                {
-                    _available = false;
-                    OverseerAvailableGauge.Set(0);
-                    OverseerCallCounter.WithLabels(operation, "exception").Inc();
-                    OverseerFailureCounter.WithLabels(operation).Inc();
-                    _log.LogWarning(ex, "Overseer health check failed");
-                    return (false, ex.Message);
-                }
+            catch (Exception ex)
+            {
+                _available = false;
+                OverseerAvailableGauge.Set(0);
+                OverseerCallCounter.WithLabels(operation, "exception").Inc();
+                OverseerFailureCounter.WithLabels(operation).Inc();
+                _log.LogWarning(ex, "Overseer health check failed");
+                return (false, ex.Message);
+            }
         }
     }
 

@@ -28,13 +28,9 @@ public class OverseerMonitorService : BackgroundService
             {
                 var (ok, _) = await _client.HealthCheckAsync(stoppingToken);
                 if (ok)
-                {
                     failureCount = 0; // reset on success
-                }
                 else
-                {
                     failureCount++;
-                }
             }
             catch
             {
