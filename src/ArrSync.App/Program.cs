@@ -13,12 +13,25 @@ builder.Configuration.AddEnvironmentVariables();
 
 var config = builder.Configuration;
 // Try environment first, then ArrSync:Overseer section, then defaults
-var overseerUrl = config["OVERSEER_URL"] ?? config["ArrSync:Config:Url"] ?? "http://localhost:5055";
+// Support both OVERSEER_URL and ARR_SYNC style config for backward compatibility.
+var overseerUrl = config["OVERSEER_URL"] ?? config["ArrSync:Config:OverseerUrl"] ?? config["ArrSync:Config:Url"] ?? "http://localhost:5055";
 var overseerKey = config["OVERSEER_API_KEY"] ?? config["ArrSync:Config:ApiKey"];
 // Number of seconds to wait for an Overseer HTTP request before timing out.
 // Increased default from 10 to 30s to avoid premature TaskCanceledExceptions when Overseer is slow.
 var timeoutSeconds = int.TryParse(config["TIMEOUT_SECONDS"], out var t) ? t : 30;
+// Webhook listen port: can be set via ArrSync:Config:Port or WEBHOOK_PORT env var. If set, we'll instruct the
+// host to listen on that port (0.0.0.0 by default). This is separate from the Overseer Url which points to the
+// external Overseerr service.
+var webhookPortStr = config["WEBHOOK_PORT"] ?? config["ArrSync:Config:Port"];
+var webhookPort = int.TryParse(webhookPortStr, out var p) ? p : (int?)null;
 var logLevel = config["LOG_LEVEL"] ?? config["Logging:LogLevel:Default"] ?? "Information";
+
+// If ArrSync config provided a webhook port, configure the host to listen on that port now (before Build).
+if (webhookPort.HasValue)
+{
+    var listenUrl = $"http://0.0.0.0:{webhookPort.Value}";
+    builder.WebHost.UseUrls(listenUrl);
+}
 
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
@@ -72,14 +85,13 @@ builder.Services.AddSingleton<CleanupService>();
 builder.Services.AddHostedService<OverseerMonitorService>();
 
 var app = builder.Build();
-
 // Log resolved ArrSync configuration at startup (mask secrets)
 try
 {
     var resolvedConfig = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Config>>().Value;
     var maskedKey = string.IsNullOrWhiteSpace(resolvedConfig.ApiKey) ? "<none>" : "****REDACTED****";
-    app.Logger.LogInformation("ArrSync configuration: Url={url} DryRun={dryRun} MonitorInterval={mi} WebhookSecretConfigured={hasSecret}",
-        resolvedConfig.Url ?? "<unspecified>", resolvedConfig.DryRun, resolvedConfig.MonitorIntervalSeconds, !string.IsNullOrWhiteSpace(resolvedConfig.WebhookSecret));
+    app.Logger.LogInformation("ArrSync configuration: OverseerUrl={url} DryRun={dryRun} MonitorInterval={mi} WebhookSecretConfigured={hasSecret}",
+        resolvedConfig.OverseerUrl ?? "<unspecified>", resolvedConfig.DryRun, resolvedConfig.MonitorIntervalSeconds, !string.IsNullOrWhiteSpace(resolvedConfig.WebhookSecret));
 }
 catch (Exception ex)
 {

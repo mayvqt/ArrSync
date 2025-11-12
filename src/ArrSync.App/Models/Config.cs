@@ -3,9 +3,10 @@ namespace ArrSync.App.Models;
 public sealed class Config
 {
     // Overseerr related
-    public string? Url { get; set; }
+    // Overseerr base URL (e.g. http://overseer:5055)
+    public string? OverseerUrl { get; set; }
     public string? ApiKey { get; set; }
-    public int TimeoutSeconds { get; set; } = 10;
+    public int TimeoutSeconds { get; set; } = 30;
     public int MaxRetries { get; set; } = 3;
     public int InitialBackoffSeconds { get; set; } = 1;
     public bool DryRun { get; set; } = false;
