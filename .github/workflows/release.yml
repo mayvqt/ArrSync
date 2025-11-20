@@ -126,7 +126,7 @@ jobs:
       - name: Create zip for published output (Windows)
         if: runner.os == 'Windows'
         run: |
-          powershell -Command "Compress-Archive -Path \"artifacts/publish/${{ matrix.rid }}\\*\" -DestinationPath \"artifacts/publish/arrsync-${{ matrix.rid }}.zip\" -Force"
+          powershell -Command "Compress-Archive -Path (Get-ChildItem -Path 'artifacts/publish/${{ matrix.rid }}' -Recurse | ForEach-Object { $_.FullName }) -DestinationPath 'artifacts/publish/arrsync-${{ matrix.rid }}.zip' -Force"
       - name: Create zip for published output (non-Windows)
         if: runner.os != 'Windows'
         run: |
