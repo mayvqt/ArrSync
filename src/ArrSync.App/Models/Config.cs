@@ -8,6 +8,5 @@ public sealed class Config {
     public int InitialBackoffSeconds { get; set; } = 1;
     public bool DryRun { get; set; }
     public int MonitorIntervalSeconds { get; set; } = 60;
-
     public string? WebhookSecret { get; set; }
 }
