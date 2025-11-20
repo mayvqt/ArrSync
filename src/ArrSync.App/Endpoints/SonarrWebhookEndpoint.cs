@@ -5,10 +5,8 @@ using Microsoft.Extensions.Options;
 
 namespace ArrSync.App.Endpoints;
 
-public static class SonarrWebhookEndpoint
-{
-    public static void MapSonarrWebhookEndpoint(this WebApplication app)
-    {
+public static class SonarrWebhookEndpoint {
+    public static void MapSonarrWebhookEndpoint(this WebApplication app) {
         app.MapPost("/webhook/sonarr", HandleSonarrWebhook)
             .WithName("SonarrWebhook")
             .WithTags("Webhooks")
@@ -21,21 +19,17 @@ public static class SonarrWebhookEndpoint
         SonarrWebhook payload,
         ICleanupService cleanupService,
         IOptions<Config> config,
-        CancellationToken cancellationToken)
-    {
-        if (!WebhookAuthenticationHelper.IsAuthenticated(request, config.Value))
-        {
+        CancellationToken cancellationToken) {
+        if (!WebhookAuthenticationHelper.IsAuthenticated(request, config.Value)) {
             return Results.Unauthorized();
         }
 
-        if (WebhookAuthenticationHelper.IsTestEvent(payload.EventType))
-        {
+        if (WebhookAuthenticationHelper.IsTestEvent(payload.EventType)) {
             return Results.Ok(new WebhookResponse { Message = "test event ignored" });
         }
 
         var tmdbId = payload.Series?.TmdbId ?? 0;
-        if (tmdbId <= 0)
-        {
+        if (tmdbId <= 0) {
             return Results.Ok(new WebhookResponse { Message = "no tmdb id found" });
         }
 
@@ -43,8 +37,7 @@ public static class SonarrWebhookEndpoint
         return Results.Ok(new WebhookResponse { Message = "processed" });
     }
 
-    private record WebhookResponse
-    {
+    private record WebhookResponse {
         public required string Message { get; init; }
     }
 }

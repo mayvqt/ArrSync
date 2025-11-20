@@ -6,28 +6,22 @@ using ArrSync.App.Services.Timing;
 
 namespace ArrSync.Tests.TestUtils;
 
-public class FakePeriodicTimer : IPeriodicTimer
-{
+public class FakePeriodicTimer : IPeriodicTimer {
     private readonly SemaphoreSlim _sem = new(0, int.MaxValue);
     private bool _disposed;
 
-    public async Task<bool> WaitForNextTickAsync(CancellationToken ct)
-    {
-        try
-        {
+    public async Task<bool> WaitForNextTickAsync(CancellationToken ct) {
+        try {
             await _sem.WaitAsync(ct).ConfigureAwait(false);
             return true;
         }
-        catch (OperationCanceledException)
-        {
+        catch (OperationCanceledException) {
             return false;
         }
     }
 
-    public void Dispose()
-    {
-        if (_disposed)
-        {
+    public void Dispose() {
+        if (_disposed) {
             return;
         }
 
@@ -35,14 +29,12 @@ public class FakePeriodicTimer : IPeriodicTimer
         _sem.Dispose();
     }
 
-    public void Tick()
-    {
+    public void Tick() {
         _sem.Release();
     }
 }
 
-public class FakePeriodicTimerFactory : IPeriodicTimerFactory
-{
+public class FakePeriodicTimerFactory : IPeriodicTimerFactory {
     private readonly ConcurrentQueue<TimeSpan> _intervals = new();
     private readonly ConcurrentQueue<FakePeriodicTimer> _queue = new();
     private readonly ConcurrentBag<TimeSpan> _recorded = new();
@@ -51,8 +43,7 @@ public class FakePeriodicTimerFactory : IPeriodicTimerFactory
     public TimeSpan[] Intervals => _intervals.ToArray();
     public TimeSpan[] RecordedIntervals => _recorded.ToArray();
 
-    public IPeriodicTimer Create(TimeSpan interval)
-    {
+    public IPeriodicTimer Create(TimeSpan interval) {
         var t = new FakePeriodicTimer();
         _queue.Enqueue(t);
         _intervals.Enqueue(interval);
@@ -60,10 +51,8 @@ public class FakePeriodicTimerFactory : IPeriodicTimerFactory
         return t;
     }
 
-    public bool TickNext()
-    {
-        if (_queue.TryDequeue(out var t))
-        {
+    public bool TickNext() {
+        if (_queue.TryDequeue(out var t)) {
             t.Tick();
             return true;
         }
@@ -71,10 +60,8 @@ public class FakePeriodicTimerFactory : IPeriodicTimerFactory
         return false;
     }
 
-    public void TickAll()
-    {
-        while (TickNext())
-        {
+    public void TickAll() {
+        while (TickNext()) {
         }
     }
 }

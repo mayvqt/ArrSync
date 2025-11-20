@@ -2,8 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace ArrSync.App.Models;
 
-public sealed record RadarrWebhook
-{
+public sealed record RadarrWebhook {
     [JsonPropertyName("eventType")] public string? EventType { get; init; }
 
     [JsonPropertyName("instanceName")] public string? InstanceName { get; init; }
@@ -11,8 +10,7 @@ public sealed record RadarrWebhook
     [JsonPropertyName("movie")] public RadarrMovie? Movie { get; init; }
 }
 
-public sealed record RadarrMovie
-{
+public sealed record RadarrMovie {
     [JsonPropertyName("id")] public int Id { get; init; }
 
     [JsonPropertyName("title")] public string? Title { get; init; }

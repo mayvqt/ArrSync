@@ -12,26 +12,20 @@ using Xunit;
 
 namespace ArrSync.Tests;
 
-public static class TaskExtensions
-{
-    public static async Task<T> WithCancellation<T>(this Task<T> task, CancellationToken ct)
-    {
+public static class TaskExtensions {
+    public static async Task<T> WithCancellation<T>(this Task<T> task, CancellationToken ct) {
         using var reg = ct.Register(() => { });
         return await task.ConfigureAwait(false);
     }
 }
 
-public class OverseerMonitorEndToEndTests
-{
+public class OverseerMonitorEndToEndTests {
     [Fact]
-    public async Task Monitor_RequestsAdaptiveDelays_BasedOnFailures()
-    {
+    public async Task Monitor_RequestsAdaptiveDelays_BasedOnFailures() {
         var calls = 0;
-        var fakeOverseer = new FakeOverseerClient(() =>
-        {
+        var fakeOverseer = new FakeOverseerClient(() => {
             calls++;
-            if (calls <= 2)
-            {
+            if (calls <= 2) {
                 return Task.FromResult((false, "down"));
             }
 
@@ -52,11 +46,9 @@ public class OverseerMonitorEndToEndTests
 
         var created = 0;
         var sw = Stopwatch.StartNew();
-        while (created == 0 && sw.Elapsed < TimeSpan.FromSeconds(2))
-        {
+        while (created == 0 && sw.Elapsed < TimeSpan.FromSeconds(2)) {
             created = timerFactory.CreatedTimers.Length;
-            if (created == 0)
-            {
+            if (created == 0) {
                 await Task.Delay(10);
             }
         }
@@ -75,32 +67,26 @@ public class OverseerMonitorEndToEndTests
     }
 }
 
-internal class FakeOverseerClient : IOverseerClient
-{
+internal class FakeOverseerClient : IOverseerClient {
     private readonly Func<Task<(bool, string)>> _responder;
 
-    public FakeOverseerClient(Func<Task<(bool, string)>> responder)
-    {
+    public FakeOverseerClient(Func<Task<(bool, string)>> responder) {
         _responder = responder;
     }
 
-    public Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct)
-    {
+    public Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct) {
         return _responder();
     }
 
-    public Task<int?> GetMediaIdByTmdbAsync(int tmdbId, string mediaType, CancellationToken ct)
-    {
+    public Task<int?> GetMediaIdByTmdbAsync(int tmdbId, string mediaType, CancellationToken ct) {
         return Task.FromResult<int?>(null);
     }
 
-    public Task<bool> DeleteMediaAsync(int id, CancellationToken ct)
-    {
+    public Task<bool> DeleteMediaAsync(int id, CancellationToken ct) {
         return Task.FromResult(true);
     }
 
-    public Task<bool> IsAvailableAsync()
-    {
+    public Task<bool> IsAvailableAsync() {
         return Task.FromResult(true);
     }
 }

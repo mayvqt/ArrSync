@@ -14,11 +14,9 @@ using Xunit;
 
 namespace ArrSync.Tests.Endpoints;
 
-public class EndpointsIntegrationTests
-{
+public class EndpointsIntegrationTests {
     [Fact]
-    public async Task Health_Returns200_WhenOverseerOk()
-    {
+    public async Task Health_Returns200_WhenOverseerOk() {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
         builder.Services.AddRouting();
@@ -34,8 +32,7 @@ public class EndpointsIntegrationTests
     }
 
     [Fact]
-    public async Task Health_Returns503_WhenOverseerDown()
-    {
+    public async Task Health_Returns503_WhenOverseerDown() {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
         builder.Services.AddRouting();
@@ -51,8 +48,7 @@ public class EndpointsIntegrationTests
     }
 
     [Fact]
-    public async Task RadarrWebhook_RejectsWhenSecretMissing()
-    {
+    public async Task RadarrWebhook_RejectsWhenSecretMissing() {
         var cfg = new Config { WebhookSecret = "supersecret" };
 
         var builder = WebApplication.CreateBuilder();
@@ -72,8 +68,7 @@ public class EndpointsIntegrationTests
     }
 
     [Fact]
-    public async Task RadarrWebhook_IgnoresTestEvents()
-    {
+    public async Task RadarrWebhook_IgnoresTestEvents() {
         var cfg = new Config { WebhookSecret = null };
         var fake = new FakeCleanup();
 
@@ -97,8 +92,7 @@ public class EndpointsIntegrationTests
     }
 
     [Fact]
-    public async Task RadarrWebhook_ProcessesWhenValid()
-    {
+    public async Task RadarrWebhook_ProcessesWhenValid() {
         var cfg = new Config { WebhookSecret = null };
         var fake = new FakeCleanup();
 
@@ -123,48 +117,39 @@ public class EndpointsIntegrationTests
 
     private record WebhookResponseDto(string Message);
 
-    private class FakeOverseer : IOverseerClient
-    {
+    private class FakeOverseer : IOverseerClient {
         private readonly bool _ok;
 
-        public FakeOverseer(bool ok)
-        {
+        public FakeOverseer(bool ok) {
             _ok = ok;
         }
 
-        public Task<bool> IsAvailableAsync()
-        {
+        public Task<bool> IsAvailableAsync() {
             return Task.FromResult(_ok);
         }
 
-        public Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct)
-        {
+        public Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct) {
             return Task.FromResult((_ok, _ok ? "ok" : "down"));
         }
 
-        public Task<int?> GetMediaIdByTmdbAsync(int tmdbId, string mediaType, CancellationToken ct)
-        {
+        public Task<int?> GetMediaIdByTmdbAsync(int tmdbId, string mediaType, CancellationToken ct) {
             return Task.FromResult<int?>(null);
         }
 
-        public Task<bool> DeleteMediaAsync(int id, CancellationToken ct)
-        {
+        public Task<bool> DeleteMediaAsync(int id, CancellationToken ct) {
             return Task.FromResult(true);
         }
     }
 
-    private class FakeCleanup : ICleanupService
-    {
+    private class FakeCleanup : ICleanupService {
         public bool Processed { get; private set; }
 
-        public Task ProcessSonarrAsync(int tmdbId, CancellationToken ct)
-        {
+        public Task ProcessSonarrAsync(int tmdbId, CancellationToken ct) {
             Processed = true;
             return Task.CompletedTask;
         }
 
-        public Task ProcessRadarrAsync(int tmdbId, CancellationToken ct)
-        {
+        public Task ProcessRadarrAsync(int tmdbId, CancellationToken ct) {
             Processed = true;
             return Task.CompletedTask;
         }

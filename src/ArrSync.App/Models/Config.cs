@@ -1,7 +1,6 @@
 namespace ArrSync.App.Models;
 
-public sealed class Config
-{
+public sealed class Config {
     public string? OverseerUrl { get; set; }
     public string? ApiKey { get; set; }
     public int TimeoutSeconds { get; set; } = 30;

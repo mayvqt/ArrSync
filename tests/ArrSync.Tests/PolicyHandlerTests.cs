@@ -9,27 +9,22 @@ using Xunit;
 
 namespace ArrSync.Tests;
 
-internal class SimpleHandler : HttpMessageHandler
-{
+internal class SimpleHandler : HttpMessageHandler {
     private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
 
-    public SimpleHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
-    {
+    public SimpleHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) {
         _responder = responder;
     }
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         return Task.FromResult(_responder(request));
     }
 }
 
-public class PolicyHandlerTests
-{
+public class PolicyHandlerTests {
     [Fact]
-    public async Task PolicyHandler_InvokesInnerHandler()
-    {
+    public async Task PolicyHandler_InvokesInnerHandler() {
         var inner = new SimpleHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
         var policy = Policy.NoOpAsync<HttpResponseMessage>();
         var ph = new PolicyHandler(policy) { InnerHandler = inner };

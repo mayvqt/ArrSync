@@ -11,21 +11,16 @@ using Xunit;
 
 namespace ArrSync.Tests;
 
-public class OverseerHttpIntegrationTests
-{
+public class OverseerHttpIntegrationTests {
     [Fact]
-    public async Task OverseerHttp_GetHealth_ReturnsOk()
-    {
+    public async Task OverseerHttp_GetHealth_ReturnsOk() {
         using var host = await new HostBuilder()
-            .ConfigureWebHost(web =>
-            {
+            .ConfigureWebHost(web => {
                 web.UseTestServer();
                 web.ConfigureServices(services => services.AddRouting());
-                web.Configure(app =>
-                {
+                web.Configure(app => {
                     app.UseRouting();
-                    app.UseEndpoints(endpoints =>
-                    {
+                    app.UseEndpoints(endpoints => {
                         endpoints.MapGet("/api/v1/status", async ctx => await ctx.Response.WriteAsync("ok"));
                     });
                 });

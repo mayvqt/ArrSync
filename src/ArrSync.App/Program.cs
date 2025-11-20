@@ -12,8 +12,7 @@ var envFromEnv = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
 var defaultEnv = File.Exists(Path.Combine(contentRoot, "appsettings.Development.json")) ? "Development" : "Production";
 var environmentName = string.IsNullOrWhiteSpace(envFromEnv) ? defaultEnv : envFromEnv;
 
-var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-{
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions {
     Args = args,
     ContentRootPath = contentRoot,
     EnvironmentName = environmentName
@@ -30,8 +29,7 @@ var webhookPort = int.TryParse(
     ? port
     : (int?)null;
 
-if (webhookPort.HasValue)
-{
+if (webhookPort.HasValue) {
     builder.WebHost.UseUrls($"http://0.0.0.0:{webhookPort.Value}");
 }
 
@@ -43,23 +41,19 @@ builder.Services.AddApplicationServices();
 
 var app = builder.Build();
 
-try
-{
+try {
     var config = app.Services.GetRequiredService<IOptions<Config>>().Value;
     var overseerUrl = string.IsNullOrWhiteSpace(config.OverseerUrl) ? "http://localhost:5055" : config.OverseerUrl;
-    if (string.IsNullOrWhiteSpace(config.OverseerUrl))
-    {
+    if (string.IsNullOrWhiteSpace(config.OverseerUrl)) {
         app.Logger.LogWarning("OverseerUrl not configured, falling back to default {DefaultUrl}", overseerUrl);
     }
 
-    if (config.TimeoutSeconds < 1)
-    {
+    if (config.TimeoutSeconds < 1) {
         app.Logger.LogWarning("TimeoutSeconds value {Timeout} is invalid, using 30s", config.TimeoutSeconds);
         config.TimeoutSeconds = 30;
     }
 
-    if (config.MonitorIntervalSeconds < 1)
-    {
+    if (config.MonitorIntervalSeconds < 1) {
         app.Logger.LogWarning("MonitorIntervalSeconds value {Interval} is invalid, using 60s",
             config.MonitorIntervalSeconds);
         config.MonitorIntervalSeconds = 60;
@@ -72,8 +66,7 @@ try
         config.MonitorIntervalSeconds,
         config.TimeoutSeconds);
 }
-catch (Exception ex)
-{
+catch (Exception ex) {
     app.Logger.LogWarning(ex, "Failed to read configuration on startup");
 }
 

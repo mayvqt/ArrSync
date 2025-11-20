@@ -12,29 +12,23 @@ using Xunit;
 
 namespace ArrSync.Tests;
 
-internal class DelegateHandler : HttpMessageHandler
-{
+internal class DelegateHandler : HttpMessageHandler {
     private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
 
-    public DelegateHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
-    {
+    public DelegateHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) {
         _responder = responder ?? throw new ArgumentNullException(nameof(responder));
     }
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
-        CancellationToken cancellationToken)
-    {
+        CancellationToken cancellationToken) {
         return Task.FromResult(_responder(request));
     }
 }
 
-public class OverseerClientTests
-{
-    private static OverseerClient CreateClient(Func<HttpRequestMessage, HttpResponseMessage> responder)
-    {
+public class OverseerClientTests {
+    private static OverseerClient CreateClient(Func<HttpRequestMessage, HttpResponseMessage> responder) {
         var handler = new DelegateHandler(responder);
-        var http = new HttpClient(handler)
-        {
+        var http = new HttpClient(handler) {
             BaseAddress = new Uri("http://overseer")
         };
 
@@ -45,8 +39,7 @@ public class OverseerClientTests
     }
 
     [Fact]
-    public async Task HealthCheck_ReturnsOk_WhenStatus200()
-    {
+    public async Task HealthCheck_ReturnsOk_WhenStatus200() {
         var client = CreateClient(req => new HttpResponseMessage(HttpStatusCode.OK));
         var (ok, details) = await client.HealthCheckAsync(CancellationToken.None);
         Assert.True(ok);
@@ -54,12 +47,10 @@ public class OverseerClientTests
     }
 
     [Fact]
-    public async Task GetMediaIdByTmdb_ReturnsId_WhenJsonHasId()
-    {
+    public async Task GetMediaIdByTmdb_ReturnsId_WhenJsonHasId() {
         var json = "{ \"id\": 123 }";
         var client = CreateClient(req =>
-            new HttpResponseMessage(HttpStatusCode.OK)
-            {
+            new HttpResponseMessage(HttpStatusCode.OK) {
                 Content = new StringContent(json)
             });
 
@@ -68,8 +59,7 @@ public class OverseerClientTests
     }
 
     [Fact]
-    public async Task DeleteMedia_ReturnsTrue_OnSuccess()
-    {
+    public async Task DeleteMedia_ReturnsTrue_OnSuccess() {
         var client = CreateClient(req => new HttpResponseMessage(HttpStatusCode.OK));
         var ok = await client.DeleteMediaAsync(42, CancellationToken.None);
         Assert.True(ok);

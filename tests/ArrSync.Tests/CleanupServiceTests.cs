@@ -9,11 +9,9 @@ using Xunit;
 
 namespace ArrSync.Tests;
 
-public class CleanupServiceTests
-{
+public class CleanupServiceTests {
     [Fact]
-    public async Task DryRun_DoesNotCallOverseer()
-    {
+    public async Task DryRun_DoesNotCallOverseer() {
         var fake = new FakeOverseer();
         var cfg = Options.Create(new Config { DryRun = true });
         var svc = new CleanupService(fake, cfg, NullLogger<CleanupService>.Instance);
@@ -23,8 +21,7 @@ public class CleanupServiceTests
     }
 
     [Fact]
-    public async Task ProcessRadarr_CallsOverseer_WhenNotDryRun()
-    {
+    public async Task ProcessRadarr_CallsOverseer_WhenNotDryRun() {
         var fake = new FakeOverseer { ToReturnId = 42 };
         var cfg = Options.Create(new Config { DryRun = false });
         var svc = new CleanupService(fake, cfg, NullLogger<CleanupService>.Instance);
@@ -33,29 +30,24 @@ public class CleanupServiceTests
         Assert.Equal(555, fake.LastRequestedTmdb);
     }
 
-    private class FakeOverseer : IOverseerClient
-    {
+    private class FakeOverseer : IOverseerClient {
         public int? LastRequestedTmdb { get; private set; }
         public int? ToReturnId { get; set; }
 
-        public Task<bool> IsAvailableAsync()
-        {
+        public Task<bool> IsAvailableAsync() {
             return Task.FromResult(true);
         }
 
-        public Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct)
-        {
+        public Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct) {
             return Task.FromResult((true, "ok"));
         }
 
-        public Task<int?> GetMediaIdByTmdbAsync(int tmdbId, string mediaType, CancellationToken ct)
-        {
+        public Task<int?> GetMediaIdByTmdbAsync(int tmdbId, string mediaType, CancellationToken ct) {
             LastRequestedTmdb = tmdbId;
             return Task.FromResult(ToReturnId);
         }
 
-        public Task<bool> DeleteMediaAsync(int id, CancellationToken ct)
-        {
+        public Task<bool> DeleteMediaAsync(int id, CancellationToken ct) {
             return Task.FromResult(true);
         }
     }
