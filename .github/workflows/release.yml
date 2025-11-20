@@ -66,7 +66,8 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git tag -a "${TAG}" -m "Release ${TAG}"
-            git push origin "${TAG}"
+            # Push using explicit refspec to avoid ambiguous-ref errors
+            git push origin "refs/tags/${TAG}"
           fi
 
   build-publish:
@@ -160,6 +161,8 @@ jobs:
           # Use the pushed tag name when the workflow was triggered by a tag push,
           # otherwise fall back to the tag determined/created earlier.
           tag_name: ${{ github.ref_name || needs.determine-tag.outputs.tag }}
+          # Ensure the Release name equals the tag
+          name: ${{ github.ref_name || needs.determine-tag.outputs.tag }}
           files: releases/*
           generate_release_notes: true
           draft: false
