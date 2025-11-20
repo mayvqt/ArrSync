@@ -1,46 +1,39 @@
-ArrSync listens for deletion webhooks from Sonarr and Radarr and forwards the relevant information to an Overseer instance.
+﻿
+```markdown
+[![CI](https://github.com/mayvqt/ArrSync/actions/workflows/ci.yml/badge.svg)](https://github.com/mayvqt/ArrSync/actions)
+[![CD](https://github.com/mayvqt/ArrSync/actions/workflows/release.yml/badge.svg)](https://github.com/mayvqt/ArrSync/actions)
+[![Release](https://img.shields.io/github/v/release/mayvqt/ArrSync)](https://github.com/mayvqt/ArrSync/releases)
+[![License](https://img.shields.io/github/license/mayvqt/ArrSync)](https://github.com/mayvqt/ArrSync/blob/main/LICENSE)
 
-- Supported events: Sonarr/Radarr delete/remove events (native webhook payloads).
-- Validation: optional secret/HMAC signature verification for incoming webhooks to ensure authenticity.
-- Transformation: extracts the fields Overseer expects (title, release date, IDs, path, and deletion reason) and converts payloads when necessary.
-- Delivery: posts a compact deletion record to the configured Overseer API endpoint; supports retry/backoff on transient failures.
-- Observability and health: exposes a health endpoint and Prometheus metrics for monitoring delivery success and failure counts.
-- Configuration: all behavior is configured via `appsettings.{Environment}.json` in `src/ArrSync.App` (Overseer endpoint, retry policy, secrets, logging, and metrics).
+# ArrSync
 
-Use case: keep Overseer's database in sync with Sonarr/Radarr by ensuring removals performed in those apps are reflected in Overseer without duplicating other event types.
+ArrSync forwards Sonarr and Radarr deletion webhooks to an Overseer instance. It validates incoming webhooks (optional HMAC), extracts the relevant fields, and reliably posts compact deletion records to a configured Overseer API endpoint.
 
-## Requirements
+Features:
+- Forwards Sonarr/Radarr delete/remove events
+- Optional HMAC signature validation for authenticity
+- Retry and backoff on transient delivery failures
+- Health endpoint and Prometheus metrics for monitoring
 
-- .NET 8 SDK
-- A Unix-like shell (bash) or Windows PowerShell for the commands below
+Requirements:
+- .NET 10
+- PowerShell (Windows) or a POSIX shell for running commands
 
-## Quick start
+Quick start (from repository root):
 
-Build the solution from the repository root:
-
-```bash
+```powershell
 dotnet build ArrSync.sln -c Release
-```
-
-Run the tests:
-
-```bash
 dotnet test ArrSync.sln -c Release
+cd src/ArrSync.App; dotnet run --configuration Release
 ```
 
-Run the app (from the `src/ArrSync.App` folder):
+Configuration:
+Edit `src/ArrSync.App/appsettings.Development.json` or `appsettings.Production.json` to set the Overseer endpoint, retry policy, secrets, and metrics settings.
 
-```bash
-cd src/ArrSync.App
-dotnet run --configuration Release
+Contributing:
+Small, focused pull requests are welcome. Please include tests for new behavior and follow existing coding conventions.
+
+License:
+See the repository for license details.
+
 ```
-
-Configuration files (`appsettings.Development.json`, `appsettings.Production.json`) live in `src/ArrSync.App` and can be used to set endpoints, secrets, and monitoring options.
-
-## Contributing
-
-Small, focused pull requests are welcome. Follow the project's coding conventions and include tests for new features or bug fixes.
-
-## License
-
-This project is provided under the terms of its existing license. See the repository for details.
