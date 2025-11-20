@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Determine changed C# files
+        id: changed
+        run: |
+          git fetch origin main
+          changed=$(git diff --name-only origin/main...HEAD | grep -E '\.cs$' || true)
+          echo "changed=$changed" >> $GITHUB_OUTPUT
+      - name: Run linter (dotnet-format) and save report
+        id: lint
+        run: |
+          mkdir -p artifacts
+          dotnet tool install --tool-path ./tools dotnet-format
+          export PATH="$PWD/tools:$PATH"
+          echo "Running linter..."
+          if [ -z "${{ steps.changed.outputs.changed }}" ]; then
+            ./tools/dotnet-format --verify-no-changes > artifacts/lint-report.txt 2>&1 || LINT_EXIT=$?
+          else
+            ./tools/dotnet-format --verify-no-changes --include ${{ steps.changed.outputs.changed }} > artifacts/lint-report.txt 2>&1 || LINT_EXIT=$?
+          fi
+          echo "lint_exit_code=${LINT_EXIT:-0}" >> $GITHUB_OUTPUT
+      - name: Zip lint report
+        run: |
+          cd artifacts
+          zip -r lint-report.zip lint-report.txt || true
+          cd -
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: artifacts/lint-report.zip
+      - name: Fail build on lint issues
+        if: steps.lint.outputs.lint_exit_code != '0'
+        run: exit ${{ steps.lint.outputs.lint_exit_code }}
