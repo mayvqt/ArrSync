@@ -101,7 +101,9 @@ jobs:
       - name: Restore
         run: dotnet restore ArrSync.sln
 
-      - name: Publish single-file for ${{ matrix.rid }}
+      - name: Publish single-file for ${{ matrix.rid }} (non-Windows)
+        if: runner.os != 'Windows'
+        shell: bash
         env:
           VERSION: ${{ needs.determine-tag.outputs.version }}
           COMMIT: ${{ github.sha }}
@@ -109,7 +111,18 @@ jobs:
           set -euo pipefail
           outdir="artifacts/publish/${{ matrix.rid }}"
           mkdir -p "$outdir"
-          dotnet publish src/ArrSync.App/ArrSync.App.csproj -c Release -r "${{ matrix.rid }}" -o "$outdir" --self-contained true -p:PublishSingleFile=true -p:Version="$VERSION" -p:InformationalVersion="${COMMIT}" || true
+          dotnet publish src/ArrSync.App/ArrSync.App.csproj -c Release -r "${{ matrix.rid }}" -o "$outdir" --self-contained true -p:PublishSingleFile=true -p:Version="$VERSION" -p:InformationalVersion="${COMMIT}"
+      - name: Publish single-file for ${{ matrix.rid }} (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.determine-tag.outputs.version }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $outdir = "artifacts/publish/${{ matrix.rid }}"
+          New-Item -ItemType Directory -Force -Path $outdir | Out-Null
+          dotnet publish src/ArrSync.App/ArrSync.App.csproj -c Release -r "${{ matrix.rid }}" -o $outdir --self-contained true -p:PublishSingleFile=true -p:Version="$env:VERSION" -p:InformationalVersion="$env:COMMIT"
       - name: Create zip for published output (Windows)
         if: runner.os == 'Windows'
         run: |
