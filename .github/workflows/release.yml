@@ -12,8 +12,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write
-  attestations: write
 
 jobs:
   determine-tag:
@@ -30,7 +28,7 @@ jobs:
       - name: Determine or create release tag
         id: tag
         run: |
-          set -e
+          set -euo pipefail
           INPUT_TAG="${{ github.event.inputs.tag }}"
           REF_NAME="${{ github.ref_name }}"
           if [ -n "${INPUT_TAG}" ]; then
@@ -71,22 +69,11 @@ jobs:
 
   build-publish:
     needs: determine-tag
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            rid: linux-x64
-          - os: windows-latest
-            rid: win-x64
-          - os: macos-latest
-            rid: osx-x64
-          - os: ubuntu-latest
-            rid: linux-arm64
-          - os: windows-latest
-            rid: win-arm64
-          - os: macos-latest
-            rid: osx-arm64
+        rid: [linux-x64, win-x64, osx-x64, linux-arm64, win-arm64, osx-arm64]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -101,8 +88,7 @@ jobs:
       - name: Restore
         run: dotnet restore ArrSync.sln
 
-      - name: Publish single-file for ${{ matrix.rid }} (non-Windows)
-        if: runner.os != 'Windows'
+      - name: Publish single-file for ${{ matrix.rid }}
         shell: bash
         env:
           VERSION: ${{ needs.determine-tag.outputs.version }}
@@ -112,29 +98,14 @@ jobs:
           outdir="artifacts/publish/${{ matrix.rid }}"
           mkdir -p "$outdir"
           dotnet publish src/ArrSync.App/ArrSync.App.csproj -c Release -r "${{ matrix.rid }}" -o "$outdir" --self-contained true -p:PublishSingleFile=true -p:Version="$VERSION" -p:InformationalVersion="${COMMIT}"
-      - name: Publish single-file for ${{ matrix.rid }} (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        env:
-          VERSION: ${{ needs.determine-tag.outputs.version }}
-          COMMIT: ${{ github.sha }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $outdir = "artifacts/publish/${{ matrix.rid }}"
-          New-Item -ItemType Directory -Force -Path $outdir | Out-Null
-          dotnet publish src/ArrSync.App/ArrSync.App.csproj -c Release -r "${{ matrix.rid }}" -o $outdir --self-contained true -p:PublishSingleFile=true -p:Version="$env:VERSION" -p:InformationalVersion="$env:COMMIT"
-      - name: Create zip for published output (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          powershell -Command "Compress-Archive -Path (Get-ChildItem -Path 'artifacts/publish/${{ matrix.rid }}' -Recurse | ForEach-Object { $_.FullName }) -DestinationPath 'artifacts/publish/arrsync-${{ matrix.rid }}.zip' -Force"
-      - name: Create zip for published output (non-Windows)
-        if: runner.os != 'Windows'
+      - name: Create zip for published output
+        shell: bash
         run: |
           mkdir -p artifacts/publish
           cd artifacts/publish
           zip -r arrsync-${{ matrix.rid }}.zip ${{ matrix.rid }} || true
           cd -
-      - name: Upload artifact for ${{ matrix.rid }}
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: arrsync-${{ matrix.rid }}
@@ -144,32 +115,32 @@ jobs:
     needs: build-publish
     runs-on: ubuntu-latest
     steps:
-      - name: Download Linux x64 artifact
+      - name: Download linux x64
         uses: actions/download-artifact@v4
         with:
           name: arrsync-linux-x64
           path: releases
-      - name: Download Windows x64 artifact
+      - name: Download win x64
         uses: actions/download-artifact@v4
         with:
           name: arrsync-win-x64
           path: releases
-      - name: Download macOS x64 artifact
+      - name: Download osx x64
         uses: actions/download-artifact@v4
         with:
           name: arrsync-osx-x64
           path: releases
-      - name: Download Linux arm64 artifact
+      - name: Download linux arm64
         uses: actions/download-artifact@v4
         with:
           name: arrsync-linux-arm64
           path: releases
-      - name: Download Windows arm64 artifact
+      - name: Download win arm64
         uses: actions/download-artifact@v4
         with:
           name: arrsync-win-arm64
           path: releases
-      - name: Download macOS arm64 artifact
+      - name: Download osx arm64
         uses: actions/download-artifact@v4
         with:
           name: arrsync-osx-arm64
