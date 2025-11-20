@@ -11,22 +11,6 @@ namespace ArrSync.Tests;
 
 public class CleanupServiceTests
 {
-    private class FakeOverseer : IOverseerClient
-    {
-        public int? LastRequestedTmdb { get; private set; }
-        public int? ToReturnId { get; set; }
-
-        public Task<bool> IsAvailableAsync() => Task.FromResult(true);
-        public Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct) => Task.FromResult((true, "ok"));
-        public Task<int?> GetMediaIdByTmdbAsync(int tmdbId, string mediaType, CancellationToken ct)
-        {
-            LastRequestedTmdb = tmdbId;
-            return Task.FromResult(ToReturnId);
-        }
-
-        public Task<bool> DeleteMediaAsync(int id, CancellationToken ct) => Task.FromResult(true);
-    }
-
     [Fact]
     public async Task DryRun_DoesNotCallOverseer()
     {
@@ -47,5 +31,32 @@ public class CleanupServiceTests
 
         await svc.ProcessRadarrAsync(555, CancellationToken.None);
         Assert.Equal(555, fake.LastRequestedTmdb);
+    }
+
+    private class FakeOverseer : IOverseerClient
+    {
+        public int? LastRequestedTmdb { get; private set; }
+        public int? ToReturnId { get; set; }
+
+        public Task<bool> IsAvailableAsync()
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<(bool ok, string details)> HealthCheckAsync(CancellationToken ct)
+        {
+            return Task.FromResult((true, "ok"));
+        }
+
+        public Task<int?> GetMediaIdByTmdbAsync(int tmdbId, string mediaType, CancellationToken ct)
+        {
+            LastRequestedTmdb = tmdbId;
+            return Task.FromResult(ToReturnId);
+        }
+
+        public Task<bool> DeleteMediaAsync(int id, CancellationToken ct)
+        {
+            return Task.FromResult(true);
+        }
     }
 }

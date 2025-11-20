@@ -1,31 +1,18 @@
 namespace ArrSync.App;
 
-/// <summary>
-/// Application-wide constants for magic strings and values.
-/// Moved into Configuration folder for better organization while retaining the original namespace.
-/// </summary>
 public static class Constants
 {
-    /// <summary>
-    /// Media type constants for Overseerr API.
-    /// </summary>
     public static class MediaTypes
     {
         public const string Movie = "movie";
         public const string Tv = "tv";
     }
 
-    /// <summary>
-    /// Event type constants for webhooks.
-    /// </summary>
     public static class EventTypes
     {
         public const string Test = "Test";
     }
 
-    /// <summary>
-    /// HTTP header constants.
-    /// </summary>
     public static class Headers
     {
         public const string WebhookSecret = "X-Webhook-Secret";
@@ -33,9 +20,6 @@ public static class Constants
         public const string Accept = "Accept";
     }
 
-    /// <summary>
-    /// Configuration key constants.
-    /// </summary>
     public static class ConfigKeys
     {
         public const string OverseerUrl = "OVERSEER_URL";
@@ -47,9 +31,6 @@ public static class Constants
         public const string LogLevel = "LOG_LEVEL";
     }
 
-    /// <summary>
-    /// Prometheus metric operation names.
-    /// </summary>
     public static class Operations
     {
         public const string Health = "health";
@@ -57,9 +38,6 @@ public static class Constants
         public const string DeleteMedia = "deleteMedia";
     }
 
-    /// <summary>
-    /// Prometheus metric status labels.
-    /// </summary>
     public static class MetricStatus
     {
         public const string Start = "start";

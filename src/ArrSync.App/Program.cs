@@ -1,18 +1,14 @@
-using System;
-using System.IO;
 using ArrSync.App;
 using ArrSync.App.Configuration;
 using ArrSync.App.Endpoints;
 using ArrSync.App.Models;
+using Microsoft.Extensions.Options;
 using Prometheus;
 
-// Use the assembly folder as the content root so appsettings.* next to the binary are discovered
 var contentRoot = AppContext.BaseDirectory;
 
-// Prefer explicit environment variables; if none are set, pick Development when a dev config file exists
-// next to the assembly, otherwise default to Production.
 var envFromEnv = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
-             ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+                 ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 var defaultEnv = File.Exists(Path.Combine(contentRoot, "appsettings.Development.json")) ? "Development" : "Production";
 var environmentName = string.IsNullOrWhiteSpace(envFromEnv) ? defaultEnv : envFromEnv;
 
@@ -20,41 +16,36 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
     ContentRootPath = contentRoot,
-    EnvironmentName = environmentName,
+    EnvironmentName = environmentName
 });
 
-// Bind application config from configuration section `ArrSync:Config` and environment vars
 builder.Configuration.AddEnvironmentVariables();
 builder.Services.AddOptions<Config>()
     .Bind(builder.Configuration.GetSection("ArrSync:Config"))
     .ValidateOnStart();
 
-// Configure webhook port if specified
 var webhookPort = int.TryParse(
     builder.Configuration[Constants.ConfigKeys.WebhookPort],
-    out var port) ? port : (int?)null;
+    out var port)
+    ? port
+    : (int?)null;
 
 if (webhookPort.HasValue)
 {
     builder.WebHost.UseUrls($"http://0.0.0.0:{webhookPort.Value}");
 }
 
-// Configure logging
 builder.Logging.ConfigureAppLogging(builder.Configuration);
 
-// Add Overseerr HTTP client with retry/circuit breaker policies
 builder.Services.AddOverseerrClient(builder.Configuration);
 
-// Add application services
 builder.Services.AddApplicationServices();
 
 var app = builder.Build();
 
-// Log startup configuration
 try
 {
-    var config = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Config>>().Value;
-    // Sanity-check configuration and log a short, non-sensitive summary
+    var config = app.Services.GetRequiredService<IOptions<Config>>().Value;
     var overseerUrl = string.IsNullOrWhiteSpace(config.OverseerUrl) ? "http://localhost:5055" : config.OverseerUrl;
     if (string.IsNullOrWhiteSpace(config.OverseerUrl))
     {
@@ -69,7 +60,8 @@ try
 
     if (config.MonitorIntervalSeconds < 1)
     {
-        app.Logger.LogWarning("MonitorIntervalSeconds value {Interval} is invalid, using 60s", config.MonitorIntervalSeconds);
+        app.Logger.LogWarning("MonitorIntervalSeconds value {Interval} is invalid, using 60s",
+            config.MonitorIntervalSeconds);
         config.MonitorIntervalSeconds = 60;
     }
 
@@ -85,11 +77,9 @@ catch (Exception ex)
     app.Logger.LogWarning(ex, "Failed to read configuration on startup");
 }
 
-// Configure Prometheus metrics
 app.UseMetricServer();
 app.UseHttpMetrics();
 
-// Map endpoints
 app.MapHealthEndpoint();
 app.MapSonarrWebhookEndpoint();
 app.MapRadarrWebhookEndpoint();

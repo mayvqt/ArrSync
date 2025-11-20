@@ -1,14 +1,14 @@
 using System.Net;
 using System.Text.Json;
 using ArrSync.App.Models;
-using Microsoft.Extensions.Options;
 using ArrSync.App.Services.Http;
+using Microsoft.Extensions.Options;
 using Prometheus;
+
 namespace ArrSync.App.Services.Clients;
 
 public class OverseerClient : IOverseerClient
 {
-    // Prometheus metrics
     private static readonly Counter OverseerCallCounter = Metrics.CreateCounter("arrsync_overseer_calls_total",
         "Total number of Overseer calls", new CounterConfiguration
         {
@@ -34,7 +34,6 @@ public class OverseerClient : IOverseerClient
     private readonly IOverseerHttp _http;
     private readonly ILogger<OverseerClient> _log;
     private readonly Config _opts;
-    // Use thread-safe Random.Shared to avoid concurrency issues
     private bool _available = true;
 
     public OverseerClient(IOverseerHttp http, IOptions<Config> opts, ILogger<OverseerClient> log)
@@ -56,9 +55,9 @@ public class OverseerClient : IOverseerClient
         OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Start).Inc();
         using (OverseerLatency.WithLabels(operation).NewTimer())
         {
-                try
-                {
-                    using var resp = await _http.GetAsync("/api/v1/status", ct).ConfigureAwait(false);
+            try
+            {
+                using var resp = await _http.GetAsync("/api/v1/status", ct).ConfigureAwait(false);
                 if (resp.IsSuccessStatusCode)
                 {
                     _available = true;
@@ -121,7 +120,10 @@ public class OverseerClient : IOverseerClient
                     {
                         OverseerCallCounter.WithLabels(operation, Constants.MetricStatus.Ok).Inc();
                         var mediaId = await ParseMediaIdAsync(resp.Content, ct).ConfigureAwait(false);
-                        if (mediaId.HasValue) return mediaId.Value;
+                        if (mediaId.HasValue)
+                        {
+                            return mediaId.Value;
+                        }
 
                         throw new InvalidOperationException("Could not find media id in response");
                     }
@@ -149,30 +151,9 @@ public class OverseerClient : IOverseerClient
             }
         }
 
-        if (lastEx != null) throw lastEx;
-        return null;
-    }
-
-    private static async Task<int?> ParseMediaIdAsync(HttpContent content, CancellationToken ct)
-    {
-        await using var stream = await content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
-
-        if (doc.RootElement.ValueKind == JsonValueKind.Object)
+        if (lastEx != null)
         {
-            if (doc.RootElement.TryGetProperty("mediaInfo", out var mi) &&
-                mi.ValueKind == JsonValueKind.Object && mi.TryGetProperty("id", out var idEl) &&
-                idEl.ValueKind == JsonValueKind.Number)
-            {
-                var id = idEl.GetInt32();
-                if (id != 0) return id;
-            }
-
-            if (doc.RootElement.TryGetProperty("id", out var id2) && id2.ValueKind == JsonValueKind.Number)
-            {
-                var idVal = id2.GetInt32();
-                if (idVal != 0) return idVal;
-            }
+            throw lastEx;
         }
 
         return null;
@@ -232,14 +213,45 @@ public class OverseerClient : IOverseerClient
         return false;
     }
 
+    private static async Task<int?> ParseMediaIdAsync(HttpContent content, CancellationToken ct)
+    {
+        await using var stream = await content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+
+        if (doc.RootElement.ValueKind == JsonValueKind.Object)
+        {
+            if (doc.RootElement.TryGetProperty("mediaInfo", out var mi) &&
+                mi.ValueKind == JsonValueKind.Object && mi.TryGetProperty("id", out var idEl) &&
+                idEl.ValueKind == JsonValueKind.Number)
+            {
+                var id = idEl.GetInt32();
+                if (id != 0)
+                {
+                    return id;
+                }
+            }
+
+            if (doc.RootElement.TryGetProperty("id", out var id2) && id2.ValueKind == JsonValueKind.Number)
+            {
+                var idVal = id2.GetInt32();
+                if (idVal != 0)
+                {
+                    return idVal;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private TimeSpan ComputeBackoff(int attempt)
     {
         var maxBackoff = TimeSpan.FromSeconds(30);
-        // attempt is 1-based; use exponential backoff with cap
+
         var exp = Math.Pow(2, Math.Max(0, attempt - 1));
         var baseSeconds = Math.Min(maxBackoff.TotalSeconds, Math.Max(0.1, _opts.InitialBackoffSeconds) * exp);
         var baseBackoff = TimeSpan.FromSeconds(baseSeconds);
-        // Use a conservative jitter: range [0.5*base, 1.0*base] to avoid near-zero delays
+
         var jitter = Random.Shared.NextDouble() * 0.5 + 0.5;
         var backoff = TimeSpan.FromMilliseconds(baseBackoff.TotalMilliseconds * jitter);
         _log.LogDebug("Computed backoff for attempt {Attempt}: {BackoffMs}ms", attempt, backoff.TotalMilliseconds);

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ArrSync.App.Models;
 using ArrSync.App.Services.Clients;
+using ArrSync.App.Services.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -20,7 +21,8 @@ internal class DelegateHandler : HttpMessageHandler
         _responder = responder ?? throw new ArgumentNullException(nameof(responder));
     }
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+        CancellationToken cancellationToken)
     {
         return Task.FromResult(_responder(request));
     }
@@ -38,7 +40,7 @@ public class OverseerClientTests
 
         var cfg = Options.Create(new Config { MaxRetries = 1, InitialBackoffSeconds = 1 });
         var logger = NullLogger<OverseerClient>.Instance;
-        var overseerHttp = new ArrSync.App.Services.Http.OverseerHttp(http);
+        var overseerHttp = new OverseerHttp(http);
         return new OverseerClient(overseerHttp, cfg, logger);
     }
 

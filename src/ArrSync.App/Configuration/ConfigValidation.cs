@@ -1,17 +1,18 @@
+using ArrSync.App.Models;
 using Microsoft.Extensions.Options;
 
 namespace ArrSync.App.Configuration;
 
-public class ConfigValidation : IValidateOptions<ArrSync.App.Models.Config>
+public class ConfigValidation : IValidateOptions<Config>
 {
-    private readonly Microsoft.Extensions.Hosting.IHostEnvironment _env;
+    private readonly IHostEnvironment _env;
 
-    public ConfigValidation(Microsoft.Extensions.Hosting.IHostEnvironment env)
+    public ConfigValidation(IHostEnvironment env)
     {
         _env = env ?? throw new ArgumentNullException(nameof(env));
     }
 
-    public ValidateOptionsResult Validate(string? name, ArrSync.App.Models.Config options)
+    public ValidateOptionsResult Validate(string? name, Config options)
     {
         var failures = new List<string>();
 
@@ -20,8 +21,8 @@ public class ConfigValidation : IValidateOptions<ArrSync.App.Models.Config>
             return ValidateOptionsResult.Fail("Config is null");
         }
 
-        // Validate URL
-        if (string.IsNullOrWhiteSpace(options.OverseerUrl) || !Uri.TryCreate(options.OverseerUrl, UriKind.Absolute, out _))
+        if (string.IsNullOrWhiteSpace(options.OverseerUrl) ||
+            !Uri.TryCreate(options.OverseerUrl, UriKind.Absolute, out _))
         {
             failures.Add("OverseerUrl must be a valid absolute URI");
         }
@@ -41,8 +42,8 @@ public class ConfigValidation : IValidateOptions<ArrSync.App.Models.Config>
             failures.Add("MaxRetries must be >= 0");
         }
 
-        // Require API key in Production for safety (unless intentionally unset)
-        if (string.IsNullOrWhiteSpace(options.ApiKey) && string.Equals(_env.EnvironmentName, "Production", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(options.ApiKey) &&
+            string.Equals(_env.EnvironmentName, "Production", StringComparison.OrdinalIgnoreCase))
         {
             failures.Add("ApiKey must be set in Production environment");
         }

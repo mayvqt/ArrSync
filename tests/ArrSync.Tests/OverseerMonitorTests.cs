@@ -13,7 +13,7 @@ public class OverseerMonitorTests
     public void ComputeNextDelay_BacksOffAsExpected(int baseSeconds, int failureCount, int expectedMs)
     {
         var baseInterval = TimeSpan.FromSeconds(baseSeconds);
-    var next = ArrSync.App.Services.Monitoring.OverseerMonitorService.ComputeNextDelay(baseInterval, failureCount);
+        var next = OverseerMonitorService.ComputeNextDelay(baseInterval, failureCount);
         Assert.Equal(expectedMs, (int)next.TotalMilliseconds);
     }
 }

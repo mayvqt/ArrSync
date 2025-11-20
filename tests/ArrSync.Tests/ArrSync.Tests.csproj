@@ -6,17 +6,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="xunit" Version="2.8.0" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0"/>
+    <PackageReference Include="xunit" Version="2.8.0"/>
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.0"/>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="8.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="8.0.0"/>
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../..//src/ArrSync.App/ArrSync.App.csproj" />
+    <ProjectReference Include="../..//src/ArrSync.App/ArrSync.App.csproj"/>
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-
 namespace ArrSync.App.Services.Timing;
 
 public sealed class PeriodicTimerFactory : IPeriodicTimerFactory
@@ -32,5 +29,8 @@ internal sealed class PeriodicTimerWrapper : IPeriodicTimer
         }
     }
 
-    public void Dispose() => _timer.Dispose();
+    public void Dispose()
+    {
+        _timer.Dispose();
+    }
 }
