@@ -1,105 +1,180 @@
-name: Manual Release
+name: Release
 
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.2.3). If empty, a patch bump from the latest tag will be created automatically.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
+  determine-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine or create release tag
+        id: tag
+        run: |
+          set -e
+          INPUT_TAG="${{ github.event.inputs.tag }}"
+          REF_NAME="${{ github.ref_name }}"
+          if [ -n "${INPUT_TAG}" ]; then
+            TAG="${INPUT_TAG}"
+          else
+            if [ "${{ github.event_name }}" = "push" ] && [[ "${REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              TAG="${REF_NAME}"
+            else
+              if git describe --tags --abbrev=0 >/dev/null 2>&1; then
+                LATEST=$(git describe --tags --abbrev=0)
+              else
+                LATEST="v0.0.0"
+              fi
+              MAJ=$(echo "${LATEST}" | sed -E 's/^v([0-9]+)\..*/\1/')
+              MIN=$(echo "${LATEST}" | sed -E 's/^v[0-9]+\.([0-9]+)\..*/\1/')
+              PATCH=$(echo "${LATEST}" | sed -E 's/^v[0-9]+\.[0-9]+\.([0-9]+).*/\1/')
+              MAJ=${MAJ:-0}; MIN=${MIN:-0}; PATCH=${PATCH:-0}
+              NEXT=$((PATCH + 1))
+              TAG="v${MAJ}.${MIN}.${NEXT}"
+            fi
+          fi
+
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid tag format: ${TAG}. Must be vMAJ.MIN.PATCH"
+            exit 1
+          fi
+
+          echo "Using release tag: ${TAG}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+
+          if [ "${{ github.event_name }}" != "push" ] || [[ "${REF_NAME}" != "${TAG}" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "${TAG}" -m "Release ${TAG}"
+            git push origin "${TAG}"
+          fi
+
   build-publish:
+    needs: determine-tag
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-              - os: ubuntu-latest
-                rid: linux-x64
-              - os: windows-latest
-                rid: win-x64
-              - os: macos-latest
-                rid: osx-x64
-              - os: ubuntu-latest
-                rid: linux-arm64
-              - os: windows-latest
-                rid: win-arm64
-              - os: macos-latest
-                rid: osx-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-x64
+          - os: ubuntu-latest
+            rid: linux-arm64
+          - os: windows-latest
+            rid: win-arm64
+          - os: macos-latest
+            rid: osx-arm64
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
       - name: Restore
         run: dotnet restore ArrSync.sln
+
       - name: Publish single-file for ${{ matrix.rid }}
+        env:
+          VERSION: ${{ needs.determine-tag.outputs.version }}
+          COMMIT: ${{ github.sha }}
         run: |
-          dotnet publish src/ArrSync.App/ArrSync.App.csproj -c Release -r ${{ matrix.rid }} -o artifacts/publish/${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true
+          set -euo pipefail
+          outdir="artifacts/publish/${{ matrix.rid }}"
+          mkdir -p "$outdir"
+          dotnet publish src/ArrSync.App/ArrSync.App.csproj -c Release -r "${{ matrix.rid }}" -o "$outdir" --self-contained true -p:PublishSingleFile=true -p:Version="$VERSION" -p:InformationalVersion="${COMMIT}" || true
+      - name: Create zip for published output (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          powershell -Command "Compress-Archive -Path \"artifacts/publish/${{ matrix.rid }}\\*\" -DestinationPath \"artifacts/publish/arrsync-${{ matrix.rid }}.zip\" -Force"
+      - name: Create zip for published output (non-Windows)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p artifacts/publish
+          cd artifacts/publish
+          zip -r arrsync-${{ matrix.rid }}.zip ${{ matrix.rid }} || true
+          cd -
       - name: Upload artifact for ${{ matrix.rid }}
         uses: actions/upload-artifact@v4
         with:
           name: arrsync-${{ matrix.rid }}
-          path: artifacts/publish/${{ matrix.rid }}
+          path: artifacts/publish/arrsync-${{ matrix.rid }}.zip
 
   create-release:
-    runs-on: ubuntu-latest
     needs: build-publish
+    runs-on: ubuntu-latest
     steps:
       - name: Download Linux x64 artifact
         uses: actions/download-artifact@v4
         with:
           name: arrsync-linux-x64
-          path: artifacts/publish/linux-x64
+          path: releases
       - name: Download Windows x64 artifact
         uses: actions/download-artifact@v4
         with:
           name: arrsync-win-x64
-          path: artifacts/publish/win-x64
+          path: releases
       - name: Download macOS x64 artifact
         uses: actions/download-artifact@v4
         with:
           name: arrsync-osx-x64
-          path: artifacts/publish/osx-x64
+          path: releases
       - name: Download Linux arm64 artifact
         uses: actions/download-artifact@v4
         with:
           name: arrsync-linux-arm64
-          path: artifacts/publish/linux-arm64
+          path: releases
       - name: Download Windows arm64 artifact
         uses: actions/download-artifact@v4
         with:
           name: arrsync-win-arm64
-          path: artifacts/publish/win-arm64
+          path: releases
       - name: Download macOS arm64 artifact
         uses: actions/download-artifact@v4
         with:
           name: arrsync-osx-arm64
-          path: artifacts/publish/osx-arm64
-      - name: Zip platform artifacts
-        run: |
-          mkdir -p release-zips
-          zip -r release-zips/arrsync-linux-x64.zip artifacts/publish/linux-x64 || true
-          zip -r release-zips/arrsync-win-x64.zip artifacts/publish/win-x64 || true
-          zip -r release-zips/arrsync-osx-x64.zip artifacts/publish/osx-x64 || true
-          zip -r release-zips/arrsync-linux-arm64.zip artifacts/publish/linux-arm64 || true
-          zip -r release-zips/arrsync-win-arm64.zip artifacts/publish/win-arm64 || true
-          zip -r release-zips/arrsync-osx-arm64.zip artifacts/publish/osx-arm64 || true
+          path: releases
 
-      - name: Generate automatic version
-        id: gen_version
-        run: |
-          # Use UTC date and run number for an automatic, unique version
-          VERSION="v$(date -u +'%Y.%m.%d')-r${GITHUB_RUN_NUMBER}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-      - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
         with:
-          tag: ${{ steps.gen_version.outputs.version }}
-          name: ${{ steps.gen_version.outputs.version }}
-          files: |
-            release-zips/arrsync-linux-x64.zip
-            release-zips/arrsync-win-x64.zip
-            release-zips/arrsync-osx-x64.zip
-            release-zips/arrsync-linux-arm64.zip
-            release-zips/arrsync-win-arm64.zip
-            release-zips/arrsync-osx-arm64.zip
+          subject-path: 'releases/*'
+
+      - name: Create GitHub Release (with assets)
+        id: gh_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.determine-tag.outputs.tag }}
+          files: releases/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
