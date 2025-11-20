@@ -1,5 +1,4 @@
 ﻿[![CI](https://github.com/mayvqt/ArrSync/actions/workflows/ci.yml/badge.svg)](https://github.com/mayvqt/ArrSync/actions)
-[![CD](https://github.com/mayvqt/ArrSync/actions/workflows/release.yml/badge.svg)](https://github.com/mayvqt/ArrSync/actions)
 [![Release](https://img.shields.io/github/v/release/mayvqt/ArrSync)](https://github.com/mayvqt/ArrSync/releases)
 [![License](https://img.shields.io/github/license/mayvqt/ArrSync)](https://github.com/mayvqt/ArrSync/blob/main/LICENSE)
 
