@@ -157,7 +157,9 @@ jobs:
         id: gh_release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.determine-tag.outputs.tag }}
+          # Use the pushed tag name when the workflow was triggered by a tag push,
+          # otherwise fall back to the tag determined/created earlier.
+          tag_name: ${{ github.ref_name || needs.determine-tag.outputs.tag }}
           files: releases/*
           generate_release_notes: true
           draft: false
